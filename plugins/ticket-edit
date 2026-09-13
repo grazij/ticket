@@ -21,7 +21,7 @@ fi
 # Resolve ticket file (exact or partial match)
 file="$TICKETS_DIR/${id}.md"
 if [[ ! -f "$file" ]]; then
-    matches=$(find "$TICKETS_DIR" -maxdepth 1 -name "*${id}*.md" 2>/dev/null)
+    matches=$(find -L "$TICKETS_DIR" -maxdepth 1 -name "*${id}*.md" 2>/dev/null)
     count=$(printf '%s\n' "$matches" | grep -c . 2>/dev/null || echo 0)
     if [[ "$count" -eq 1 ]]; then
         file="$matches"

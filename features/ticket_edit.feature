@@ -43,3 +43,10 @@ Feature: Ticket Edit
     Then the command should fail
     And the output should contain "Error: invalid ticket ID '../outside'"
     And the file "outside.md" outside the tickets directory should be unchanged
+
+  Scenario: Edit with partial ID resolves through a symlinked tickets directory
+    Given a symlinked tickets directory
+    And a ticket exists with ID "sym-9001" and title "Symlink edit test"
+    When I run "ticket edit 9001" in non-TTY mode
+    Then the command should succeed
+    And the output should contain "sym-9001.md"
