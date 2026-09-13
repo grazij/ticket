@@ -12,6 +12,10 @@
 - Distinct exit codes: 1 usage error, 2 no such ticket, 3 store unavailable. Every
   failure previously exited 1, so a caller could not tell a wrong ID from a missing
   `.tickets` directory without parsing stderr
+- `close <id>` now requires `--verify-output <file|->` and records that output on the
+  ticket under a timestamped `## Verification` heading, so a closed ticket carries
+  evidence the work was done. Without it, `close` exits 1 with a one-line reason; a
+  wrong ID still exits 2. `reject` and `status <id> closed` are unaffected
 
 ### Added
 - `--json` on `search`: emits the same rows as `ready`, `blocked` and `closed`, from the

@@ -33,7 +33,7 @@ Feature: Ticket Status Management
     And ticket "test-0001" should have field "status" with value "in_progress"
 
   Scenario: Close command sets status to closed
-    When I run "ticket close test-0001"
+    When I run "echo 'tests passed' | ticket close test-0001 --verify-output -"
     Then the command should succeed
     And the output should be "Updated test-0001 -> closed"
     And ticket "test-0001" should have field "status" with value "closed"

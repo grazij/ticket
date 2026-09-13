@@ -68,7 +68,7 @@ Commands:
     --parent               Parent ticket ID
     --tags                 Comma-separated tags (e.g., --tags ui,backend,urgent)
   start <id>               Set status to in_progress
-  close <id>               Set status to closed
+  close <id> --verify-output <file|->  Close with verification output, recorded on the ticket
   reopen <id>              Set status to open
   reject <id> [--reason T] Record a decision not to do the work
   status <id> <status>     Update status (open|in_progress|closed|rejected)

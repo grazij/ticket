@@ -343,12 +343,76 @@ cmd_start() {
     cmd_status "$1" "in_progress"
 }
 
+# Close asserts the work was done, so it takes the evidence: --verify-output
+# <file|-> is recorded on the ticket under `## Verification`, in the same
+# timestamped form `add-note` uses. Without it `close` refuses with EX_USAGE and a
+# one-line reason, so a caller can branch on the refusal. `reject` is deliberately
+# unaffected: a rejection records a reason, not evidence of work. `status <id>
+# closed` still sets the field directly -- the gate is on the command that means
+# "this is done", not on the raw field.
 cmd_close() {
     if [[ $# -lt 1 ]]; then
-        echo "Usage: $(basename "$0") close <id>" >&2
-        return 1
+        echo "Usage: $(basename "$0") close <id> --verify-output <file|->" >&2
+        return $EX_USAGE
     fi
-    cmd_status "$1" "closed"
+
+    local id="$1"; shift
+    local src="" have_src=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --verify-output=*) src="${1#--verify-output=}"; have_src=1; shift ;;
+            --verify-output)
+                if [[ $# -lt 2 ]]; then
+                    echo "Error: --verify-output requires <file|->" >&2
+                    return $EX_USAGE
+                fi
+                src="$2"; have_src=1; shift 2 ;;
+            *) echo "Error: unknown option '$1'" >&2; return $EX_USAGE ;;
+        esac
+    done
+
+    # Resolve the ID first: a wrong ID is EX_NOTICKET, not a missing-evidence
+    # refusal, and the caller branching on the code needs to tell them apart.
+    local file
+    file=$(ticket_path "$id") || return $?
+    local target
+    target=$(basename "$file" .md)
+
+    if [[ "$have_src" -eq 0 ]]; then
+        echo "Error: close requires verification output: --verify-output <file|->" >&2
+        return $EX_USAGE
+    fi
+
+    local output
+    if [[ "$src" == "-" ]]; then
+        if [[ -t 0 ]]; then
+            echo "Error: --verify-output - reads the output from stdin, but stdin is a terminal" >&2
+            return $EX_USAGE
+        fi
+        output=$(cat)
+    elif [[ -z "$src" ]]; then
+        echo "Error: --verify-output requires <file|->" >&2
+        return $EX_USAGE
+    elif [[ -f "$src" ]]; then
+        output=$(cat "$src")
+    else
+        echo "Error: verification output file '$src' not found" >&2
+        return $EX_USAGE
+    fi
+
+    if [[ -z "${output//[[:space:]]/}" ]]; then
+        echo "Error: verification output is empty" >&2
+        return $EX_USAGE
+    fi
+
+    local timestamp
+    timestamp=$(_iso_date)
+    if ! grep -q '^## Verification' "$file"; then
+        printf '\n## Verification\n' >> "$file"
+    fi
+    printf '\n**%s**\n\n%s\n' "$timestamp" "$output" >> "$file"
+
+    cmd_status "$target" "closed"
 }
 
 # Reject records a decision not to do the work. It is deliberately NOT `closed`:
@@ -1554,7 +1618,7 @@ Commands:
     --parent               Parent ticket ID
     --tags                 Comma-separated tags (e.g., --tags ui,backend,urgent)
   start <id>               Set status to in_progress
-  close <id>               Set status to closed
+  close <id> --verify-output <file|->  Close with verification output, recorded on the ticket
   reopen <id>              Set status to open
   reject <id> [--reason T] Record a decision not to do the work
   status <id> <status>     Update status (open|in_progress|closed|rejected)
