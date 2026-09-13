@@ -247,6 +247,15 @@ def step_file_outside_tickets_dir(context, name, content):
     context.outside_files[name] = content
 
 
+@given(r'a beads issues file with issue "(?P<issue_id>[^"]+)" titled "(?P<title>[^"]+)"')
+def step_beads_issues_file(context, issue_id, title):
+    """Create a minimal .beads/issues.jsonl fixture for migrate-beads."""
+    beads_dir = Path(context.test_dir) / '.beads'
+    beads_dir.mkdir(parents=True, exist_ok=True)
+    issue = {"id": issue_id, "title": title, "status": "open"}
+    (beads_dir / 'issues.jsonl').write_text(json.dumps(issue) + '\n')
+
+
 @given(r'a symlinked tickets directory')
 def step_symlinked_tickets_directory(context):
     """Create .tickets as a symlink to a real directory elsewhere."""
@@ -549,6 +558,13 @@ def step_tickets_dir_exists_in_subdir(context):
     cwd = getattr(context, 'working_dir', context.test_dir)
     tickets_dir = Path(cwd) / '.tickets'
     assert tickets_dir.exists(), f".tickets directory does not exist in {cwd}"
+
+
+@then(r'tickets directory "(?P<dir_path>[^"]+)" should exist')
+def step_named_tickets_dir_exists(context, dir_path):
+    """Assert a tickets directory at a specific path (relative to test_dir) exists."""
+    tickets_dir = Path(context.test_dir) / dir_path
+    assert tickets_dir.is_dir(), f"{tickets_dir} does not exist"
 
 
 @then(r'the created ticket should contain "(?P<text>[^"]+)"')

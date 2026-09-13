@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tk-plugin: Open ticket in $EDITOR
-# tk-plugin-version: 1.0.4
+# tk-plugin-version: 1.0.5
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
@@ -10,6 +10,15 @@ fi
 
 id="$1"
 read -r id <<< "$id"
+
+# Dispatch passes an explicit TICKETS_DIR through unvalidated (a plugin may be
+# the one that creates it), so a read-only plugin that resolves against it
+# must check for itself rather than failing with no message (find on a
+# missing directory would otherwise abort the script silently under -e).
+if [[ -n "${TICKETS_DIR:-}" && ! -d "$TICKETS_DIR" ]]; then
+    echo "Error: tickets directory '$TICKETS_DIR' does not exist" >&2
+    exit 1
+fi
 
 # An ID names one file inside TICKETS_DIR, so a separator or parent reference
 # can only be an attempt to escape it. Same rule as the core ticket_path().

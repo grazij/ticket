@@ -62,3 +62,9 @@ Feature: Ticket Edit
     When I run "ticket edit edit-000" in non-TTY mode
     Then the command should fail
     And the output should contain "Error: ambiguous ID 'edit-000' matches multiple tickets"
+
+  Scenario: Edit reports a missing TICKETS_DIR instead of failing silently
+    When I run "ticket edit edit-0001" with TICKETS_DIR set to "missing-tickets"
+    Then the command should fail
+    And the output should contain "tickets directory"
+    And the output should contain "does not exist"

@@ -1367,19 +1367,16 @@ if [[ $_tk_super -eq 0 && -n "${1:-}" && "${1:-}" != "help" && "${1:-}" != "--he
     for _prefix in tk ticket; do
         _plugin="${_prefix}-$1"
         if command -v "$_plugin" &>/dev/null; then
-            # Export context for plugins
+            # Export context for plugins. Plugins are responsible for their own
+            # TICKETS_DIR handling (see comment above), so a value that does not
+            # exist yet is passed through unvalidated rather than rejected here
+            # -- a plugin may be the one that creates it (e.g. migrate-beads).
             if [[ -z "${TICKETS_DIR:-}" ]]; then
                 if _found=$(find_tickets_dir 2>/dev/null); then
                     TICKETS_DIR="$_found"
                 fi
             fi
-            if [[ -n "${TICKETS_DIR:-}" ]]; then
-                if [[ ! -d "$TICKETS_DIR" ]]; then
-                    echo "Error: tickets directory '$TICKETS_DIR' does not exist" >&2
-                    exit 1
-                fi
-                export TICKETS_DIR
-            fi
+            [[ -n "${TICKETS_DIR:-}" ]] && export TICKETS_DIR
             export TK_SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
             shift
             exec "$_plugin" "$@"

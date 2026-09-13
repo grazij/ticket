@@ -88,3 +88,28 @@ Feature: Ticket Directory Resolution
     When I run "ticket help"
     Then the command should succeed
     And the output should contain ".tickets/"
+
+  Scenario: Built-in create still initializes an explicit TICKETS_DIR that does not exist
+    When I run "ticket create 'Explicit ticket'" with TICKETS_DIR set to "explicit-tickets"
+    Then the command should succeed
+    And the output should match a ticket ID pattern
+    And tickets directory "explicit-tickets" should exist
+
+  Scenario: A plugin that creates its own TICKETS_DIR still works when it does not exist yet
+    Given a beads issues file with issue "bd-1" titled "Imported issue"
+    When I run "ticket migrate-beads" with TICKETS_DIR set to "fresh-tickets"
+    Then the command should succeed
+    And the output should contain "Migrated 1 tickets from beads"
+    And tickets directory "fresh-tickets" should exist
+
+  Scenario: List reports a missing TICKETS_DIR instead of printing nothing
+    When I run "ticket ls" with TICKETS_DIR set to "missing-tickets"
+    Then the command should fail
+    And the output should contain "tickets directory"
+    And the output should contain "does not exist"
+
+  Scenario: Query reports a missing TICKETS_DIR instead of printing nothing
+    When I run "ticket query" with TICKETS_DIR set to "missing-tickets"
+    Then the command should fail
+    And the output should contain "tickets directory"
+    And the output should contain "does not exist"
