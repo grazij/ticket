@@ -50,3 +50,15 @@ Feature: Ticket Edit
     When I run "ticket edit 9001" in non-TTY mode
     Then the command should succeed
     And the output should contain "sym-9001.md"
+
+  Scenario: Edit reports not-found cleanly for a no-match partial ID
+    When I run "ticket edit zzzz" in non-TTY mode
+    Then the command should fail
+    And the output should contain "Error: ticket 'zzzz' not found"
+    And the output should not contain "syntax error"
+
+  Scenario: Ambiguous partial ID is still reported for edit
+    Given a ticket exists with ID "edit-0002" and title "Another editable ticket"
+    When I run "ticket edit edit-000" in non-TTY mode
+    Then the command should fail
+    And the output should contain "Error: ambiguous ID 'edit-000' matches multiple tickets"
