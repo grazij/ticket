@@ -737,6 +737,35 @@ def step_ticket_contains(context, ticket_id, text):
     assert text in content, f"Ticket does not contain '{text}'\nContent: {content}"
 
 
+@then(r'ticket "(?P<ticket_id>[^"]+)" should not contain "(?P<text>[^"]+)"')
+def step_ticket_not_contains(context, ticket_id, text):
+    """Assert ticket file does not contain text."""
+    ticket_path = Path(context.test_dir) / '.tickets' / f'{ticket_id}.md'
+    content = ticket_path.read_text()
+    assert text not in content, f"Ticket contains '{text}'\nContent: {content}"
+
+
+@then(r'ticket "(?P<ticket_id>[^"]+)" should contain "(?P<text>[^"]+)" exactly (?P<count>\d+) time')
+def step_ticket_contains_n_times(context, ticket_id, text, count):
+    """Assert ticket file contains text an exact number of times."""
+    ticket_path = Path(context.test_dir) / '.tickets' / f'{ticket_id}.md'
+    content = ticket_path.read_text()
+    actual = content.count(text)
+    assert actual == int(count), \
+        f"Expected '{text}' {count} time(s), found {actual}\nContent: {content}"
+
+
+@then(r'ticket "(?P<ticket_id>[^"]+)" should contain a timestamped verification block')
+def step_ticket_has_verification_block(context, ticket_id):
+    """Assert verification output is recorded under a timestamped ## Verification heading."""
+    ticket_path = Path(context.test_dir) / '.tickets' / f'{ticket_id}.md'
+    content = ticket_path.read_text()
+
+    pattern = r'^## Verification\n\n\*\*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\*\*\n'
+    assert re.search(pattern, content, re.MULTILINE), \
+        f"No timestamped verification block found\nContent: {content}"
+
+
 @then(r'ticket "(?P<ticket_id>[^"]+)" should contain a timestamp in notes')
 def step_ticket_has_timestamp_in_notes(context, ticket_id):
     """Assert ticket has a timestamp in notes section."""
