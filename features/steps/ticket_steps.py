@@ -210,6 +210,15 @@ def step_ticket_has_hr_in_body(context, ticket_id, text):
     ticket_path.write_text(content)
 
 
+@given(r'ticket "(?P<ticket_id>[^"]+)" has body text "(?P<text>[^"]+)"')
+def step_ticket_has_body_text(context, ticket_id, text):
+    """Append plain text to the ticket body, below the frontmatter and title."""
+    ticket_path = Path(context.test_dir) / '.tickets' / f'{ticket_id}.md'
+    content = ticket_path.read_text()
+    content += f'\n{text}\n'
+    ticket_path.write_text(content)
+
+
 @given(r'ticket "(?P<ticket_id>[^"]+)" has a notes section')
 def step_ticket_has_notes(context, ticket_id):
     """Ensure ticket has a notes section."""

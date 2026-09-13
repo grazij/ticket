@@ -14,6 +14,9 @@
   `.tickets` directory without parsing stderr
 
 ### Added
+- `search [--status=X] <terms>` command: matches title and body case-insensitively
+  across every status, so a closed or rejected ticket is still findable. Arguments are
+  joined into one phrase, and output matches `ready`/`blocked`
 - Plugin system: executables named `tk-<cmd>` or `ticket-<cmd>` in PATH are invoked automatically
 - `super` command to bypass plugins and run built-in commands directly
 - `TICKETS_DIR` and `TK_SCRIPT` environment variables exported for plugins

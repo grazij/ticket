@@ -776,6 +776,75 @@ cmd_ready() {
     ' "$TICKETS_DIR"/*.md 2>/dev/null
 }
 
+# Search title and body across every status. Dedup is the reason this reaches
+# closed tickets: an item already closed or rejected is a duplicate, not a fresh
+# investigation, and a search that hides them causes the work to be redone.
+cmd_search() {
+    local status_filter=""
+    local terms=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --status=*) status_filter="${1#--status=}"; shift ;;
+            --status) status_filter="${2:-}"; shift 2 ;;
+            -*) echo "Error: unknown option '$1'" >&2; return $EX_USAGE ;;
+            *) terms+=("$1"); shift ;;
+        esac
+    done
+
+    # Arguments are joined into one case-insensitive substring, the same way
+    # cmd_create joins a title. `search quoting bug` looks for "quoting bug".
+    local query="${terms[*]:-}"
+    if [[ -z "$query" ]]; then
+        echo "Usage: $(basename "$0") search [--status=X] <terms>" >&2
+        return $EX_USAGE
+    fi
+    if [[ -n "$status_filter" ]]; then
+        validate_status "$status_filter" || return $EX_USAGE
+    fi
+
+    awk -v query="$query" -v status_filter="$status_filter" '
+    BEGIN { FS=": "; in_front=0; q=tolower(query) }
+    FNR==1 {
+        if (prev_file) emit()
+        id=""; status=""; priority=""; title=""; hay=""; in_front=0
+        prev_file=FILENAME
+    }
+    /^---$/ { in_front = !in_front; next }
+    in_front && /^id:/ { id = $2; next }
+    in_front && /^status:/ { status = $2; next }
+    in_front && /^priority:/ { priority = $2; next }
+    in_front { next }
+    {
+        if (title == "" && substr($0, 1, 2) == "# ") title = substr($0, 3)
+        hay = hay tolower($0) "\n"
+    }
+    function emit(   p) {
+        if (id == "") return
+        if (status_filter != "" && status != status_filter) return
+        if (index(hay, q) == 0) return
+        p = (priority != "") ? priority : 2
+        output[++count] = sprintf("%s|%s|%s|%s", p, id, status, title)
+    }
+    END {
+        if (prev_file) emit()
+        # Same ordering as ready/blocked: priority, then id.
+        for (i = 1; i <= count; i++) {
+            for (j = i + 1; j <= count; j++) {
+                split(output[i], a, "|")
+                split(output[j], b, "|")
+                if (a[1] > b[1] || (a[1] == b[1] && a[2] > b[2])) {
+                    tmp = output[i]; output[i] = output[j]; output[j] = tmp
+                }
+            }
+        }
+        for (i = 1; i <= count; i++) {
+            split(output[i], f, "|")
+            printf "%-8s [P%s][%s] - %s\n", f[2], f[1], f[3], f[4]
+        }
+    }
+    ' "$TICKETS_DIR"/*.md 2>/dev/null
+}
+
 cmd_closed() {
     local limit=20 assignee_filter="" tag_filter=""
     while [[ $# -gt 0 ]]; do
@@ -1328,6 +1397,7 @@ Commands:
   ready [-a X] [-T X]      List open/in-progress tickets with deps resolved
   blocked [-a X] [-T X]    List open/in-progress tickets with unresolved deps
   closed [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
+  search [--status=X] <terms>  Search title and body, all statuses by default
   show <id>                Display ticket
   add-note <id> [text]     Append timestamped note (or pipe via stdin)
   super <cmd> [args]       Bypass plugins, run built-in command directly
@@ -1414,6 +1484,7 @@ case "${1:-help}" in
     ready)  shift; cmd_ready "$@" ;;
     blocked) shift; cmd_blocked "$@" ;;
     closed) shift; cmd_closed "$@" ;;
+    search) shift; cmd_search "$@" ;;
     show)   shift; cmd_show "$@" ;;
     add-note) shift; cmd_add_note "$@" ;;
     help|--help|-h) cmd_help ;;
