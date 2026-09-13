@@ -270,7 +270,7 @@ cmd_create() {
 }
 
 # Valid statuses
-VALID_STATUSES="open in_progress closed"
+VALID_STATUSES="open in_progress closed rejected"
 
 validate_status() {
     local status="$1"
@@ -314,6 +314,45 @@ cmd_close() {
         return 1
     fi
     cmd_status "$1" "closed"
+}
+
+# Reject records a decision not to do the work. It is deliberately NOT `closed`:
+# closed asserts the work was done. `ready`, `blocked` and `closed` all filter by
+# an allow-list of statuses, so a rejected ticket drops out of each without any
+# change to them -- but `search` still finds it, which is the point. A rejection
+# nobody can rediscover gets re-investigated.
+cmd_reject() {
+    if [[ $# -lt 1 ]]; then
+        echo "Usage: $(basename "$0") reject <id> [--reason <text>]" >&2
+        return $EX_USAGE
+    fi
+
+    local id="$1"; shift
+    local reason=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --reason=*) reason="${1#--reason=}"; shift ;;
+            --reason) reason="${2:-}"; shift 2 ;;
+            -*) echo "Error: unknown option '$1'" >&2; return $EX_USAGE ;;
+            *) reason="$*"; break ;;
+        esac
+    done
+
+    local file
+    file=$(ticket_path "$id") || return $?
+    local target
+    target=$(basename "$file" .md)
+
+    update_yaml_field "$file" "status" "rejected"
+
+    # The reason goes in the body as a timestamped note rather than a new
+    # frontmatter field: it reuses cmd_add_note, and `search` reads the body, so
+    # the reasoning is findable by the words someone would search for.
+    if [[ -n "$reason" ]]; then
+        cmd_add_note "$target" "Rejected: $reason" >/dev/null
+    fi
+
+    echo "Rejected $target"
 }
 
 cmd_reopen() {
@@ -1387,7 +1426,8 @@ Commands:
   start <id>               Set status to in_progress
   close <id>               Set status to closed
   reopen <id>              Set status to open
-  status <id> <status>     Update status (open|in_progress|closed)
+  reject <id> [--reason T] Record a decision not to do the work
+  status <id> <status>     Update status (open|in_progress|closed|rejected)
   dep <id> <dep-id>        Add dependency (id depends on dep-id)
   dep tree [--full] <id>   Show dependency tree (--full disables dedup)
   dep cycle                Find dependency cycles in open tickets
@@ -1476,6 +1516,7 @@ case "${1:-help}" in
     start)  shift; cmd_start "$@" ;;
     close)  shift; cmd_close "$@" ;;
     reopen) shift; cmd_reopen "$@" ;;
+    reject) shift; cmd_reject "$@" ;;
     status) shift; cmd_status "$@" ;;
     dep)    shift; cmd_dep "$@" ;;
     undep)  shift; cmd_undep "$@" ;;

@@ -14,6 +14,9 @@
   `.tickets` directory without parsing stderr
 
 ### Added
+- `reject <id> [--reason <text>]` command and a `rejected` status: work decided against is
+  no longer recorded as `closed`, which asserted it was done. `ready`, `blocked` and
+  `closed` all exclude it; `search` still finds it, including by the reason text
 - `search [--status=X] <terms>` command: matches title and body case-insensitively
   across every status, so a closed or rejected ticket is still findable. Arguments are
   joined into one phrase, and output matches `ready`/`blocked`
