@@ -18,9 +18,10 @@ listed there has been dispositioned and must not be re-reviewed from scratch.
 When an upstream item is settled, add or update its row in the same change that
 settles it. A disposition that lives only in a session transcript is lost.
 
-Several upstream PRs target code that has since moved into `plugins/`, so a PR
-that applies cleanly may still be incomplete — check which file it patches
-before estimating it. The ledger notes the known cases.
+Several upstream PRs target code that has since moved out of the core script
+into the plugin directory described under **Plugins** below, so a PR that applies
+cleanly may still be incomplete — check which file it patches before estimating
+it. The ledger notes the known cases.
 
 ## Architecture
 

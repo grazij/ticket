@@ -10,16 +10,23 @@ has been dispositioned.
 - **This fork at snapshot:** `9cbdd2d`, 12 commits ahead. Upstream has merged
   none of our fixes, so every item marked *fixed* or *reimplemented* below is
   still open upstream.
-- **Tracker:** Gitea `grazij/ticket`. A `#NN` in the Tracker column is an issue
-  there, not an upstream number.
+- **Tracker:** Gitea `grazij/ticket`. Three numbering spaces appear here and they
+  collide. In the leftmost column of each table the number is the upstream item
+  itself, and it is linked. Everywhere else a number carries a prefix: `issue #N`
+  and `PR #N` are upstream, `tracker #N` is Gitea. Where one prefix covers two
+  numbers (`PRs #29 + #40`) it applies to both.
 
 `dirty` and `clean` describe mergeability against **our** master, not upstream's.
+
+In the Issues and Pull requests tables, a disposition in **bold** is settled and
+needs no further work; `deferred` is left plain there because it is the only one
+with work still behind it. The Dispositions table below bolds all five, as labels.
 
 ## Dispositions
 
 | Disposition | Meaning |
 | --- | --- |
-| **fixed** | Defect fixed here; no upstream PR existed, or we wrote our own |
+| **fixed** | Defect fixed here, with no upstream PR to work from |
 | **merged** | Upstream PR cherry-picked essentially as written |
 | **reimplemented** | Upstream PR's problem fixed, but the patch was rewritten — usually because it targets code that moved into `plugins/`, or because its approach was wrong |
 | **deferred** | Real work, tracked, not started |
@@ -30,7 +37,7 @@ has been dispositioned.
 | Upstream | Kind | Disposition | Where |
 | --- | --- | --- | --- |
 | [#2](https://github.com/wedow/ticket/issues/2) extensibility / custom commands | stale | **rejected** | The plugin system (`tk-<cmd>` on PATH) already delivers this |
-| [#3](https://github.com/wedow/ticket/issues/3) ship as an Agent Skill | feature | deferred | tracker #17 (blocked by #12) |
+| [#3](https://github.com/wedow/ticket/issues/3) ship as an Agent Skill | feature | deferred | tracker #17, blocked by tracker #12 |
 | [#19](https://github.com/wedow/ticket/issues/19) hierarchical IDs | feature | deferred | tracker #15 — breaking ID-format change, needs a decision first |
 | [#23](https://github.com/wedow/ticket/issues/23) create straight into `$EDITOR` | feature | deferred | tracker #11, with PR #55 |
 | [#24](https://github.com/wedow/ticket/issues/24) "I ported it to Go" | noise | **rejected** | Not an issue; author says so |
@@ -73,16 +80,17 @@ has been dispositioned.
 | [#55](https://github.com/wedow/ticket/pull/55) `-d -` stdin + `--edit` | clean | deferred | tracker #11, with issue #23 |
 | [#59](https://github.com/wedow/ticket/pull/59) `tk update` | clean, +373 | deferred | tracker #30 — land with PR #62 |
 | [#60](https://github.com/wedow/ticket/pull/60) `ls --type/--priority` + fail-fast | clean | deferred | tracker #31 — the fail-fast half is worth more than the filters |
-| [#62](https://github.com/wedow/ticket/pull/62) valid YAML flow arrays for `update` | clean | deferred | tracker #32 (blocked by #30) |
+| [#62](https://github.com/wedow/ticket/pull/62) valid YAML flow arrays for `update` | clean | deferred | tracker #32, blocked by tracker #30 |
 | [#65](https://github.com/wedow/ticket/pull/65) libexec plugin discovery | clean | deferred | tracker #12, with issue #64 |
 | [#67](https://github.com/wedow/ticket/pull/67) `tk archive` | clean, +346 | deferred | tracker #33 — also claims a `tk closed` SIGPIPE fix, **unverified**, worth splitting out |
 
 ## Tracker items not from upstream
 
-Gitea `grazij/ticket` #1–#9 came from reviewing this fork, not from upstream:
-#1–#5 from a review of `194b71a`, and #6–#9 as incidental findings while fixing
-the defects above. They are listed here only so a reader does not mistake the
-numbering for upstream issues.
+Gitea `grazij/ticket` tracker #1 through tracker #9 came from reviewing this
+fork, not from upstream: tracker #1 to tracker #5 from a review of `194b71a`, and
+tracker #6 to tracker #9 as incidental findings while fixing the defects above.
+They are listed here only so a reader does not mistake the numbering for upstream
+issues.
 
 ## Refreshing this ledger
 
