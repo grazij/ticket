@@ -4,6 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 See @README.md for usage documentation. Run `tk help` for command reference. Always update the README.md usage content when adding/changing commands and flags.
 
+## Upstream
+
+This repository is a fork of [wedow/ticket](https://github.com/wedow/ticket).
+Upstream has merged none of this fork's fixes, so an upstream issue or PR stays
+open there after it is settled here.
+
+**Before reviewing any upstream issue or PR, read `docs/upstream-triage.md`.** It
+records every open upstream item and what was decided: fixed here, merged as
+written, reimplemented and why, deferred to a tracker item, or rejected. An item
+listed there has been dispositioned and must not be re-reviewed from scratch.
+
+When an upstream item is settled, add or update its row in the same change that
+settles it. A disposition that lives only in a session transcript is lost.
+
+Several upstream PRs target code that has since moved into `plugins/`, so a PR
+that applies cleanly may still be incomplete — check which file it patches
+before estimating it. The ledger notes the known cases.
+
 ## Architecture
 
 **Core script:** Single-file bash implementation (`ticket`, ~1000 lines). Uses awk for performant bulk operations on large ticket sets.
