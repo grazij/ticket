@@ -25,7 +25,7 @@ it. The ledger notes the known cases.
 
 ## Architecture
 
-**Core script:** Single-file bash implementation (`ticket`, ~1000 lines). Uses awk for performant bulk operations on large ticket sets.
+**Core script:** Single-file bash implementation (`ticket`, ~1500 lines). Uses awk for performant bulk operations on large ticket sets.
 
 Key functions:
 - `generate_id()` - Creates IDs from directory name prefix + random suffix

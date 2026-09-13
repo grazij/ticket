@@ -10,11 +10,23 @@ has been dispositioned.
 - **This fork at snapshot:** `9cbdd2d`, 12 commits ahead. Upstream has merged
   none of our fixes, so every item marked *fixed* or *reimplemented* below is
   still open upstream.
-- **Tracker:** Gitea `grazij/ticket`. Three numbering spaces appear here and they
-  collide. In the leftmost column of each table the number is the upstream item
-  itself, and it is linked. Everywhere else a number carries a prefix: `issue #N`
-  and `PR #N` are upstream, `tracker #N` is Gitea. Where one prefix covers two
-  numbers (`PRs #29 + #40`) it applies to both.
+- **Tracker:** Gitea `grazij/ticket`, reached with an explicit backend and repo:
+
+  ```sh
+  ~/.claude/skills/tracking-work/scripts/track \
+      --backend gitea --repo grazij/ticket <verb>
+  ```
+
+  Both flags are required every time. This repository's `origin` is on
+  github.com, and `track` exits 3 for that backend because `gh` cannot
+  authenticate in a non-interactive shell here, so an unpinned `track` finds
+  nothing and reports a failure rather than an empty backlog.
+
+- **Numbering:** three numbering spaces appear here and they collide. In the
+  leftmost column of each table the number is the upstream item itself, and it is
+  linked. Everywhere else a number carries a prefix: `issue #N` and `PR #N` are
+  upstream, `tracker #N` is Gitea. Where one prefix covers two numbers
+  (`PRs #29 + #40`) it applies to both.
 
 `dirty` and `clean` describe mergeability against **our** master, not upstream's.
 
