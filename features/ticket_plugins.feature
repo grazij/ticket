@@ -35,6 +35,20 @@ Feature: Plugin System
     Then the command should succeed
     And the output should match a ticket ID pattern
 
+  Scenario: Super names the plugin when there is no built-in
+    Given a clean tickets directory
+    And a plugin "tk-onlyplugin" that outputs "from plugin"
+    When I run "ticket super onlyplugin"
+    Then the command should fail
+    And the output should contain "no built-in 'onlyplugin'"
+    And the output should contain "tk-onlyplugin"
+
+  Scenario: Super still reports a genuinely unknown command as unknown
+    Given a clean tickets directory
+    When I run "ticket super bogusverb"
+    Then the command should fail
+    And the output should contain "Unknown command: bogusverb"
+
   Scenario: Plugin receives TICKETS_DIR environment variable
     Given a clean tickets directory
     And a plugin "tk-checkenv" that outputs TICKETS_DIR

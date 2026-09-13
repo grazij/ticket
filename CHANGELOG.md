@@ -6,6 +6,9 @@
 - Extracted `edit`, `ls`, `query`, and `migrate-beads` commands to plugins (ticket-extras)
 - An unknown command now prints one line pointing at `help` instead of dumping the
   full help text to stderr (2435 bytes to 69)
+- `super <cmd>` now names the plugin when no built-in exists (`tk super ls` said
+  `Unknown command: ls`, though `ls` is a documented plugin command). `super` still
+  refuses to run the plugin
 
 ### Added
 - Plugin system: executables named `tk-<cmd>` or `ticket-<cmd>` in PATH are invoked automatically

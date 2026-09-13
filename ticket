@@ -1408,6 +1408,19 @@ case "${1:-help}" in
     add-note) shift; cmd_add_note "$@" ;;
     help|--help|-h) cmd_help ;;
     *)
+        # Under `super` a command may be unknown only as a built-in: `ls` and
+        # `list` moved to plugins. Say that, rather than claiming it is not a
+        # command at all. `super` still refuses to run the plugin -- bypassing
+        # plugins is the whole point of it.
+        if [[ $_tk_super -eq 1 ]]; then
+            for _prefix in tk ticket; do
+                if command -v "${_prefix}-$1" &>/dev/null; then
+                    echo "$(basename "$0"): no built-in '$1' - it is provided by plugin ${_prefix}-$1" >&2
+                    echo "Run '$(basename "$0") $1' to use the plugin." >&2
+                    exit 1
+                fi
+            done
+        fi
         echo "Unknown command: $1" >&2
         echo "Run '$(basename "$0") help' for a list of commands." >&2
         exit 1
