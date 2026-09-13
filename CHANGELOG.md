@@ -26,6 +26,10 @@
 - `help` reports the tickets directory actually in use, instead of always
   claiming `.tickets/` when `TICKETS_DIR` is set or the store was found in a
   parent directory
+- `scripts/publish-homebrew.sh` and `scripts/publish-aur.sh` now detect a
+  plugin alias symlink regardless of how its target is spelled (bare,
+  `./`-prefixed, or absolute), so an alias can no longer silently vanish from
+  both Homebrew and AUR
 
 ### Plugins
 - ticket-edit 1.0.0: Open ticket in $EDITOR (extracted from core)

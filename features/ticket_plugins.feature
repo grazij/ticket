@@ -76,6 +76,7 @@ Feature: Plugin System
     Then the command should succeed
     And the output should contain "sym-0001"
     And the output should contain "Symlink test ticket"
+    And "plugins/ticket-list" should be a symlink to "ticket-ls"
 
   Scenario: Built-in commands still work with plugins present
     Given a clean tickets directory

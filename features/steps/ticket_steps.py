@@ -974,3 +974,16 @@ def step_no_escaped_bracket_in_class(context):
             if offender.search(line):
                 hits.append(f"{script.name}:{lineno}: {line.strip()}")
     assert not hits, "GNU-only bracket expressions found:\n" + "\n".join(hits)
+
+
+@then(r'"(?P<link_path>[^"]+)" should be a symlink to "(?P<target_name>[^"]+)"')
+def step_path_is_symlink_to(context, link_path, target_name):
+    """Guards packaging-relevant aliases: the path must be an actual symlink,
+    not a plain copy, whose target's basename is the expected plugin name."""
+    path = Path(context.project_dir) / link_path
+    assert path.is_symlink(), f"{path} is not a symlink"
+    link_target = os.readlink(path)
+    resolved = os.path.basename(link_target)
+    assert resolved == target_name, (
+        f"{path} -> {link_target} (basename {resolved!r}), expected {target_name!r}"
+    )

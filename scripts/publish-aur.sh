@@ -5,8 +5,13 @@
 
 set -euo pipefail
 
-VERSION="${1#v}"
-SHA256="$2"
+if [[ "${1:-}" == "--self-test" ]]; then
+    VERSION=""
+    SHA256=""
+else
+    VERSION="${1#v}"
+    SHA256="$2"
+fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Setup SSH for AUR access
@@ -99,11 +104,54 @@ find_plugin_symlinks_aur() {
         [[ -L "$link" ]] || continue
         local link_target
         link_target=$(readlink "$link")
-        if [[ "$link_target" == "ticket-$target" ]]; then
+        # Normalise via basename: a symlink target may be spelled as a bare
+        # name ("ticket-ls"), ./-prefixed ("./ticket-ls"), or an absolute
+        # path -- all three must resolve to the same alias detection.
+        if [[ "$(basename "$link_target")" == "ticket-$target" ]]; then
             local alias_name="${link##*/}"
             printf '\n    ln -s "ticket-%s" "$pkgdir/usr/bin/%s"' "$target" "$alias_name"
         fi
     done
+}
+
+# Self-test: confirms find_plugin_symlinks_aur detects a plugin alias
+# regardless of how its symlink target is spelled. Runs against synthetic
+# fixtures in a scratch directory; touches no network. Not invoked by main().
+# Run manually: ./scripts/publish-aur.sh --self-test
+self_test() {
+    local tmp_root
+    tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/tk-publish-aur-selftest.XXXXXX")
+    trap 'rm -rf "$tmp_root"' RETURN
+
+    mkdir -p "$tmp_root/plugins"
+    : > "$tmp_root/plugins/ticket-ls"
+
+    local failures=0
+    local case_id case_target alias_name output
+    for case_id in bare dot-prefixed absolute; do
+        case "$case_id" in
+            bare) case_target="ticket-ls" ;;
+            dot-prefixed) case_target="./ticket-ls" ;;
+            absolute) case_target="$tmp_root/plugins/ticket-ls" ;;
+        esac
+        alias_name="ticket-list-$case_id"
+        ln -sfn "$case_target" "$tmp_root/plugins/$alias_name"
+
+        local REPO_ROOT="$tmp_root"
+        output=$(find_plugin_symlinks_aur "ls")
+        if [[ "$output" == *"/$alias_name\""* ]]; then
+            echo "PASS ($case_id): alias detected for target '$case_target'"
+        else
+            echo "FAIL ($case_id): alias NOT detected for target '$case_target'"
+            failures=$((failures + 1))
+        fi
+    done
+
+    if [[ "$failures" -gt 0 ]]; then
+        echo "self-test: $failures/3 case(s) failed"
+        return 1
+    fi
+    echo "self-test: all 3 cases passed"
 }
 
 # Generate PKGBUILD for a plugin
@@ -208,5 +256,10 @@ main() {
     fi
     echo "All packages published successfully!"
 }
+
+if [[ "${1:-}" == "--self-test" ]]; then
+    self_test
+    exit $?
+fi
 
 main "$@"
