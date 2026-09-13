@@ -59,6 +59,7 @@
 - ticket-query 1.0.1: Fixed quoted YAML array tags producing invalid JSON, and body horizontal rules (`---`) being misparsed as frontmatter
 - ticket-query 1.0.2: Strip single-quoted YAML array items the same as double-quoted ones, and escape embedded double quotes, so single-quoted tags no longer keep their quotes or break JSON
 - ticket-query 1.0.3: Report a missing `TICKETS_DIR` instead of silently outputting nothing
+- ticket-query 1.0.4: Scalar (non-array) frontmatter values now strip a matching outer quote pair and escape embedded `\` and `"`, the same as array items already did, so a scalar value like an assignee containing a quote no longer produces JSON `jq` can't parse
 - ticket-migrate-beads 1.0.0: Import tickets from .beads/issues.jsonl (extracted from core)
 
 ## [0.3.2] - 2026-02-03

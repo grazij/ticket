@@ -95,6 +95,62 @@ Feature: Ticket Query
     And the output should be valid JSONL
     And the JSONL field "tags" should equal ["don't", "b"]
 
+  Scenario: Query keeps an unquoted scalar value as valid JSON
+    Given a ticket exists with ID "query-001" and title "Unquoted scalar ticket"
+    And ticket "query-001" has scalar field "assignee" set to: unquoted value
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "assignee" should equal "unquoted value"
+
+  Scenario: Query strips double quotes from a scalar value
+    Given a ticket exists with ID "query-001" and title "Double quoted scalar ticket"
+    And ticket "query-001" has scalar field "assignee" set to: "double quoted"
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "assignee" should equal "double quoted"
+
+  Scenario: Query converts a single-quoted scalar value to valid JSON
+    Given a ticket exists with ID "query-001" and title "Single quoted scalar ticket"
+    And ticket "query-001" has scalar field "assignee" set to: 'single quoted'
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "assignee" should equal "single quoted"
+
+  Scenario: Query escapes a backslash in a scalar value
+    Given a ticket exists with ID "query-001" and title "Backslash scalar ticket"
+    And ticket "query-001" has scalar field "assignee" set to: back\slash
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "assignee" should equal "back\\slash"
+
+  Scenario: Query keeps an apostrophe inside an unquoted scalar value
+    Given a ticket exists with ID "query-001" and title "Apostrophe scalar ticket"
+    And ticket "query-001" has scalar field "assignee" set to: don't stop
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "assignee" should equal "don't stop"
+
+  Scenario: Query keeps an apostrophe inside a double-quoted scalar value
+    Given a ticket exists with ID "query-001" and title "Quoted apostrophe scalar ticket"
+    And ticket "query-001" has scalar field "assignee" set to: "don't stop"
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "assignee" should equal "don't stop"
+
+  Scenario: Query escapes a double quote embedded in an assignee created via the CLI
+    When I run "ticket create 'probe ticket' -a 'Agent \"Q\" Tester'"
+    Then the command should succeed
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "assignee" should equal "Agent \"Q\" Tester"
+
   Scenario: Query ignores a markdown horizontal rule in the ticket body
     Given a ticket exists with ID "query-001" and title "HR body ticket"
     And ticket "query-001" has a horizontal rule followed by "foo: bar" in the body

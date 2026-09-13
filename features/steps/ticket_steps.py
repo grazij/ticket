@@ -185,6 +185,22 @@ def step_ticket_has_tags_value(context, ticket_id, tags_value):
     ticket_path.write_text('\n'.join(lines))
 
 
+@given(r'ticket "(?P<ticket_id>[^"]+)" has scalar field "(?P<field>[^"]+)" set to: (?P<value>.+)')
+def step_ticket_has_scalar_field(context, ticket_id, field, value):
+    """Insert a raw `<field>: <value>` frontmatter line verbatim (scalar, not array)."""
+    ticket_path = Path(context.test_dir) / '.tickets' / f'{ticket_id}.md'
+    content = ticket_path.read_text()
+    lines = content.split('\n')
+    dash_count = 0
+    for i, line in enumerate(lines):
+        if line == '---':
+            dash_count += 1
+            if dash_count == 2:
+                lines.insert(i, f'{field}: {value}')
+                break
+    ticket_path.write_text('\n'.join(lines))
+
+
 @given(r'ticket "(?P<ticket_id>[^"]+)" has a horizontal rule followed by "(?P<text>[^"]+)" in the body')
 def step_ticket_has_hr_in_body(context, ticket_id, text):
     """Append a markdown horizontal rule (---) followed by colon-bearing text to the ticket body."""

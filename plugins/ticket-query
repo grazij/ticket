@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tk-plugin: Output tickets as JSON, optionally filtered with jq
-# tk-plugin-version: 1.0.3
+# tk-plugin-version: 1.0.4
 set -euo pipefail
 
 # Dispatch passes an explicit TICKETS_DIR through unvalidated (a plugin may be
@@ -36,6 +36,14 @@ in_front && /^[a-zA-Z]/ {
     field_keys[field_count] = key
     field_vals[field_count] = val
 }
+function unquote_escape(s) {
+    if (s ~ /^".*"$/ || s ~ /^'"'"'.*'"'"'$/) {
+        s = substr(s, 2, length(s) - 2)
+    }
+    gsub(/\\/, "\\\\", s)
+    gsub(/"/, "\\\"", s)
+    return s
+}
 function emit() {
     if (field_count > 0) {
         printf "{"
@@ -51,16 +59,12 @@ function emit() {
                 for (j = 1; j <= n; j++) {
                     if (j > 1) printf ","
                     gsub(/^ +| +$/, "", items[j])
-                    if (items[j] ~ /^".*"$/ || items[j] ~ /^'"'"'.*'"'"'$/) {
-                        items[j] = substr(items[j], 2, length(items[j]) - 2)
-                    }
-                    gsub(/\\/, "\\\\", items[j])
-                    gsub(/"/, "\\\"", items[j])
+                    items[j] = unquote_escape(items[j])
                     if (items[j] != "") printf "\"%s\"", items[j]
                 }
                 printf "]"
             } else {
-                printf "\"%s\":\"%s\"", key, val
+                printf "\"%s\":\"%s\"", key, unquote_escape(val)
             }
         }
         printf "}\n"
