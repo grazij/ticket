@@ -13,7 +13,12 @@
 - Plugin metadata: `# tk-plugin:` comment for scripts, `--tk-describe` flag for binaries
 - Multi-package distribution: `ticket-core`, `ticket-extras`, and individual plugin packages
 - CI scripts for publishing to Homebrew tap and AUR
-- Multi-word title support for `tk create` command
+
+### Fixed
+- Partial ID matching when `.tickets` is a symlink
+- Ticket ID prefix no longer inherits `.` from a dot-prefixed directory
+- Multi-word titles for `tk create` (`tk create fix the bug` kept only `bug`)
+- `TICKET_PAGER=""` no longer falls back to `PAGER`
 
 ### Plugins
 - ticket-edit 1.0.0: Open ticket in $EDITOR (extracted from core)
