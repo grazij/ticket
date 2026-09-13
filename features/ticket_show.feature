@@ -75,11 +75,18 @@ Feature: Ticket Show
     And the output should contain "parent: show-001"
     And the output should contain "# Parent ticket"
 
-  Scenario: Show does not use pager when TICKET_PAGER is empty
+  Scenario: Show does not use a pager when TICKET_PAGER is empty
     Given a ticket exists with ID "show-001" and title "Test ticket"
-    When I run "ticket show show-001" with TICKET_PAGER set to ""
+    When I run "ticket show show-001" on a terminal with PAGER set to "sed s/^/PAGED:/" and TICKET_PAGER set to ""
     Then the command should succeed
     And the output should contain "# Test ticket"
+    And the output should not contain "PAGED:"
+
+  Scenario: Show falls back to PAGER when TICKET_PAGER is unset
+    Given a ticket exists with ID "show-001" and title "Test ticket"
+    When I run "ticket show show-001" on a terminal with PAGER set to "sed s/^/PAGED:/"
+    Then the command should succeed
+    And the output should contain "PAGED:"
 
   Scenario: Show non-existent ticket
     When I run "ticket show nonexistent"

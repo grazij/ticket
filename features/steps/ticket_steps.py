@@ -2,6 +2,7 @@
 
 import json
 import os
+import pty
 import re
 import subprocess
 import tempfile
@@ -307,6 +308,60 @@ def step_run_command_with_env(context, command, var_name, var_value):
     context.stdout = result.stdout.strip()
     context.stderr = result.stderr.strip()
     context.returncode = result.returncode
+    context.last_command = command
+
+
+@when(r'I run "(?P<command>(?:[^"\\]|\\.)+)" on a terminal'
+      r'(?: with (?P<var_a>[A-Z_]+) set to "(?P<val_a>[^"]*)")?'
+      r'(?: and (?P<var_b>[A-Z_]+) set to "(?P<val_b>[^"]*)")?')
+def step_run_command_on_terminal(context, command, var_a, val_a, var_b, val_b):
+    """Run a command with stdout on a pty, so the `[[ -t 1 ]]` branch is taken.
+
+    PAGER and TICKET_PAGER are cleared first so the host environment cannot
+    decide the outcome; only the variables named in the step are set.
+    """
+    command = command.replace('\\"', '"')
+    ticket_script = get_ticket_script(context)
+    cmd = command.replace('ticket ', f'{ticket_script} ', 1)
+
+    cwd = getattr(context, 'working_dir', context.test_dir)
+
+    env = os.environ.copy()
+    env.pop('PAGER', None)
+    env.pop('TICKET_PAGER', None)
+    for name, value in ((var_a, val_a), (var_b, val_b)):
+        if name is not None:
+            env[name] = value
+
+    master, slave = pty.openpty()
+    proc = subprocess.Popen(
+        cmd,
+        shell=True,
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=slave,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    os.close(slave)
+
+    chunks = []
+    while True:
+        try:
+            data = os.read(master, 4096)
+        except OSError:
+            break
+        if not data:
+            break
+        chunks.append(data.decode(errors='replace'))
+    os.close(master)
+
+    stderr = proc.communicate()[1]
+    context.result = proc
+    context.stdout = ''.join(chunks).strip()
+    context.stderr = stderr.strip()
+    context.returncode = proc.returncode
     context.last_command = command
 
 
