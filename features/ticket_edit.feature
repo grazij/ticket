@@ -22,3 +22,17 @@ Feature: Ticket Edit
     When I run "ticket edit 0001" in non-TTY mode
     Then the command should succeed
     And the output should contain "edit-0001.md"
+
+  Scenario: Edit with an EDITOR that carries flags
+    Given a fake editor named "fake-editor" that records its arguments
+    When I run "ticket edit edit-0001" on a terminal with EDITOR set to "fake-editor --wait"
+    Then the command should succeed
+    And the editor should have received "--wait"
+    And the editor should have received "edit-0001.md"
+
+  Scenario: Edit with an EDITOR whose path contains spaces
+    Given a fake editor named "my editor" that records its arguments
+    When I run "ticket edit edit-0001" on a terminal with EDITOR set to "'my editor' --wait"
+    Then the command should succeed
+    And the editor should have received "--wait"
+    And the editor should have received "edit-0001.md"

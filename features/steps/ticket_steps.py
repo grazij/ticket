@@ -4,7 +4,9 @@ import json
 import os
 import pty
 import re
+import select
 import subprocess
+import time
 import tempfile
 from pathlib import Path
 
@@ -333,21 +335,34 @@ def step_run_command_on_terminal(context, command, var_a, val_a, var_b, val_b):
         if name is not None:
             env[name] = value
 
+    if getattr(context, 'editor_bin', None):
+        env['PATH'] = context.editor_bin + ':' + env.get('PATH', '')
+
     master, slave = pty.openpty()
     proc = subprocess.Popen(
         cmd,
         shell=True,
         cwd=cwd,
         env=env,
-        stdin=subprocess.DEVNULL,
+        stdin=slave,
         stdout=slave,
         stderr=subprocess.PIPE,
         text=True
     )
     os.close(slave)
 
+    # Read until the child closes the pty. A command that blocks on input
+    # would otherwise hang the suite, so cap the wait and kill it.
+    deadline = time.monotonic() + 30
     chunks = []
     while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            proc.kill()
+            os.close(master)
+            raise AssertionError(f"Command did not finish within 30s: {cmd}")
+        if not select.select([master], [], [], remaining)[0]:
+            continue
         try:
             data = os.read(master, 4096)
         except OSError:
@@ -817,3 +832,34 @@ exec "$TK_SCRIPT" super create "$@"
 def step_run_with_plugins(context, command):
     """Run a command with plugins in PATH."""
     run_with_plugin_path(context, command)
+
+
+@given(r'a fake editor named "(?P<name>[^"]+)" that records its arguments')
+def step_fake_editor(context, name):
+    """Install an executable that appends its argv to a file, and put it on PATH.
+
+    The name may contain spaces, which is the case the quoting has to survive.
+    """
+    bin_dir = Path(context.test_dir) / 'editor-bin'
+    bin_dir.mkdir(exist_ok=True)
+    context.editor_bin = str(bin_dir)
+    context.editor_args_file = str(Path(context.test_dir) / 'editor-args.txt')
+
+    script = bin_dir / name
+    script.write_text(
+        '#!/bin/sh\n'
+        'for arg in "$@"; do\n'
+        f'    printf \'%s\\n\' "$arg" >> "{context.editor_args_file}"\n'
+        'done\n'
+    )
+    script.chmod(0o755)
+
+
+@then(r'the editor should have received "(?P<text>[^"]+)"')
+def step_editor_received(context, text):
+    """Assert the fake editor was run with an argument containing text."""
+    args_file = Path(getattr(context, 'editor_args_file', ''))
+    args = args_file.read_text().splitlines() if args_file.exists() else []
+    assert any(text in arg for arg in args), (
+        f"Expected an editor argument containing '{text}'\nActual arguments: {args}"
+    )
