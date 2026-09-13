@@ -94,6 +94,21 @@ Searches parent directories for .tickets/ (override with TICKETS_DIR env var)
 Supports partial ID matching (e.g., 'tk show 5c4' matches 'nw-5c46')
 ```
 
+## Exit codes
+
+A failure's exit code says which kind of failure it was, so a script or agent can
+branch on it without parsing stderr.
+
+| code | meaning |
+| --- | --- |
+| 0 | success |
+| 1 | usage error: bad arguments, unknown command, malformed ID |
+| 2 | no such ticket: the ID matched nothing, or matched more than one |
+| 3 | store unavailable: no `.tickets` directory could be resolved |
+
+Code 2 and code 3 are the distinction that matters most: the first means the ID was
+wrong, the second means there is no ticket store here at all.
+
 ## Plugins
 
 Executables named `tk-<cmd>` or `ticket-<cmd>` in your PATH are invoked automatically. This allows you to add custom commands or override built-in ones.

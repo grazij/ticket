@@ -498,6 +498,19 @@ def step_command_fail(context):
         f"Command succeeded but was expected to fail\nstdout: {context.stdout}"
 
 
+@then(r'the command should exit with code (?P<code>\d+)')
+def step_command_exit_code(context, code):
+    """Assert command returned a specific exit code.
+
+    The codes are a contract: 1 usage, 2 no such ticket, 3 store unavailable.
+    `should fail` cannot catch a regression that swaps one for another.
+    """
+    expected = int(code)
+    assert context.returncode == expected, \
+        f"Expected exit code {expected}, got {context.returncode}\n" \
+        f"stdout: {context.stdout}\nstderr: {context.stderr}"
+
+
 @then(r'the output should be "(?P<expected>[^"]*)"')
 def step_output_equals(context, expected):
     """Assert output exactly matches expected string."""

@@ -39,7 +39,7 @@ init_tickets_dir() {
         # For read commands, verify the directory exists
         if [[ $is_write_cmd -eq 0 ]] && [[ ! -d "$TICKETS_DIR" ]]; then
             echo "Error: tickets directory '$TICKETS_DIR' does not exist" >&2
-            return 1
+            return $EX_NOSTORE
         fi
         return 0
     fi
@@ -52,7 +52,7 @@ init_tickets_dir() {
 
     echo "Error: no .tickets directory found (searched parent directories)" >&2
     echo "Run 'tk create' to initialize, or set TICKETS_DIR env var" >&2
-    return 1
+    return $EX_NOSTORE
 }
 
 TICKET_PAGER="${TICKET_PAGER-${PAGER:-}}"
@@ -105,6 +105,16 @@ ensure_dir() {
     mkdir -p "$TICKETS_DIR"
 }
 
+# Exit codes, so a caller can act on a failure without parsing stderr:
+#   1  usage error -- bad arguments, unknown command, malformed or invalid ID
+#   2  no such ticket -- the ID did not resolve to exactly one ticket
+#   3  store unavailable -- no .tickets directory could be resolved
+# Handlers propagate with `|| return $?`; squashing to `|| return 1` here is
+# what made every failure indistinguishable.
+EX_USAGE=1
+EX_NOTICKET=2
+EX_NOSTORE=3
+
 # Reject IDs that could escape TICKETS_DIR. A ticket ID names one file inside
 # the tickets directory, so it can never contain a path separator or a parent
 # reference; everything else stays legal, since IDs are renameable by hand.
@@ -122,7 +132,7 @@ ticket_path() {
     local id="$1"
     # Trim leading/trailing whitespace (handles Claude/agent quirks)
     read -r id <<< "$id"
-    validate_id "$id" || return 1
+    validate_id "$id" || return $EX_USAGE
     local exact="$TICKETS_DIR/${id}.md"
 
     if [[ -f "$exact" ]]; then
@@ -149,10 +159,10 @@ ticket_path() {
         return 0
     elif [[ "$count" -gt 1 ]]; then
         echo "Error: ambiguous ID '$id' matches multiple tickets" >&2
-        return 1
+        return $EX_NOTICKET
     else
         echo "Error: ticket '$id' not found" >&2
-        return 1
+        return $EX_NOTICKET
     fi
 }
 
@@ -209,7 +219,7 @@ cmd_create() {
     # Validate and resolve parent if specified
     if [[ -n "$parent" ]]; then
         local parent_file
-        parent_file=$(ticket_path "$parent") || return 1
+        parent_file=$(ticket_path "$parent") || return $?
         parent=$(basename "$parent_file" .md)
     fi
 
@@ -284,7 +294,7 @@ cmd_status() {
     validate_status "$status" || return 1
 
     local file
-    file=$(ticket_path "$id") || return 1
+    file=$(ticket_path "$id") || return $?
 
     update_yaml_field "$file" "status" "$status"
     echo "Updated $(basename "$file" .md) -> $status"
@@ -647,11 +657,11 @@ cmd_dep() {
     local id="$1"
     local dep_id="$2"
     local file
-    file=$(ticket_path "$id") || return 1
+    file=$(ticket_path "$id") || return $?
 
     # Verify dependency exists and resolve to full ID
     local dep_file
-    dep_file=$(ticket_path "$dep_id") || return 1
+    dep_file=$(ticket_path "$dep_id") || return $?
     dep_id=$(basename "$dep_file" .md)
 
     # Get current deps
@@ -921,11 +931,11 @@ cmd_undep() {
     local id="$1"
     local dep_id="$2"
     local file
-    file=$(ticket_path "$id") || return 1
+    file=$(ticket_path "$id") || return $?
 
     # Resolve dep_id to full ID
     local dep_file
-    dep_file=$(ticket_path "$dep_id") || return 1
+    dep_file=$(ticket_path "$dep_id") || return $?
     dep_id=$(basename "$dep_file" .md)
 
     local current_deps
@@ -956,7 +966,7 @@ cmd_link() {
     local -a ids=() files=()
     for arg in "$@"; do
         local file
-        file=$(ticket_path "$arg") || return 1
+        file=$(ticket_path "$arg") || return $?
         ids+=("$(basename "$file" .md)")
         files+=("$file")
     done
@@ -1033,8 +1043,8 @@ cmd_unlink() {
 
     # Resolve both IDs to full IDs
     local file target_file
-    file=$(ticket_path "$1") || return 1
-    target_file=$(ticket_path "$2") || return 1
+    file=$(ticket_path "$1") || return $?
+    target_file=$(ticket_path "$2") || return $?
     local id target_id
     id=$(basename "$file" .md)
     target_id=$(basename "$target_file" .md)
@@ -1072,7 +1082,7 @@ cmd_show() {
     fi
 
     local file
-    file=$(ticket_path "$1") || return 1
+    file=$(ticket_path "$1") || return $?
     local target_id
     target_id=$(basename "$file" .md)
 
@@ -1226,7 +1236,7 @@ cmd_add_note() {
     fi
 
     local file
-    file=$(ticket_path "$1") || return 1
+    file=$(ticket_path "$1") || return $?
     shift
 
     local note
@@ -1387,7 +1397,7 @@ fi
 # Initialize tickets dir for built-in commands (skip for help)
 case "${1:-help}" in
     help|--help|-h) ;;
-    *) init_tickets_dir "${1:-}" || exit 1 ;;
+    *) init_tickets_dir "${1:-}" || exit $? ;;
 esac
 
 # Built-in commands

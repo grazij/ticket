@@ -9,6 +9,9 @@
 - `super <cmd>` now names the plugin when no built-in exists (`tk super ls` said
   `Unknown command: ls`, though `ls` is a documented plugin command). `super` still
   refuses to run the plugin
+- Distinct exit codes: 1 usage error, 2 no such ticket, 3 store unavailable. Every
+  failure previously exited 1, so a caller could not tell a wrong ID from a missing
+  `.tickets` directory without parsing stderr
 
 ### Added
 - Plugin system: executables named `tk-<cmd>` or `ticket-<cmd>` in PATH are invoked automatically
