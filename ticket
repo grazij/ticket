@@ -57,6 +57,41 @@ init_tickets_dir() {
 
 TICKET_PAGER="${TICKET_PAGER-${PAGER:-}}"
 
+# JSON string escaping, injected into every awk program that emits JSON.
+# Defined once on purpose: escaping has already caused two defects here
+# (unstripped YAML quotes, then unescaped control characters), and the way that
+# happened was a second copy drifting from the first.
+_JSON_AWK='
+function json_escape(s) {
+    # Strip one layer of YAML quoting first, so a quoted scalar does not reach
+    # the JSON string with its quotes still embedded.
+    if (s ~ /^".*"$/ || s ~ /^\x27.*\x27$/) s = substr(s, 2, length(s) - 2)
+    gsub(/\\/, "\\\\", s)
+    gsub(/"/, "\\\"", s)
+    gsub(/\t/, "\\t", s)
+    gsub(/\r/, "\\r", s)
+    gsub(/\n/, "\\n", s)
+    return s
+}
+# A YAML flow array already stripped of [ ] and spaces -> a JSON array.
+function json_list(csv,   n, arr, i, out) {
+    if (csv == "") return "[]"
+    n = split(csv, arr, ",")
+    out = "["
+    for (i = 1; i <= n; i++) {
+        if (arr[i] == "") continue
+        if (out != "[") out = out ","
+        out = out "\"" json_escape(arr[i]) "\""
+    }
+    return out "]"
+}
+function json_row(id, priority, status, title, assignee, tags, deps) {
+    printf "{\"id\":\"%s\",\"status\":\"%s\",\"priority\":%s,\"title\":\"%s\",\"assignee\":\"%s\",\"tags\":%s,\"deps\":%s}",
+        json_escape(id), json_escape(status), (priority == "" ? 2 : priority + 0),
+        json_escape(title), json_escape(assignee), json_list(tags), json_list(deps)
+}
+'
+
 # Prefer ripgrep if available, fall back to grep
 if command -v rg &>/dev/null; then
     _grep() { rg "$@"; }
@@ -726,9 +761,10 @@ cmd_dep() {
 }
 
 cmd_ready() {
-    local assignee_filter="" tag_filter=""
+    local assignee_filter="" tag_filter="" json=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --json) json=1; shift ;;
             -a) assignee_filter="$2"; shift 2 ;;
             --assignee=*) assignee_filter="${1#--assignee=}"; shift ;;
             -T) tag_filter="$2"; shift 2 ;;
@@ -737,7 +773,7 @@ cmd_ready() {
         esac
     done
 
-    awk -v assignee_filter="$assignee_filter" -v tag_filter="$tag_filter" '
+    awk -v assignee_filter="$assignee_filter" -v tag_filter="$tag_filter" -v json="$json" "$_JSON_AWK"'
     BEGIN { FS=": "; in_front=0 }
     FNR==1 {
         if (prev_file) store()
@@ -807,9 +843,19 @@ cmd_ready() {
             }
         }
 
-        for (i = 1; i <= count; i++) {
-            split(output[i], f, "|")
-            printf "%-8s [P%s][%s] - %s\n", f[2], f[1], f[3], f[4]
+        if (json) {
+            printf "["
+            for (i = 1; i <= count; i++) {
+                split(output[i], f, "|")
+                if (i > 1) printf ","
+                json_row(f[2], f[1], f[3], f[4], assignees[f[2]], all_tags[f[2]], deps_raw[f[2]])
+            }
+            printf "]\n"
+        } else {
+            for (i = 1; i <= count; i++) {
+                split(output[i], f, "|")
+                printf "%-8s [P%s][%s] - %s\n", f[2], f[1], f[3], f[4]
+            }
         }
     }
     ' "$TICKETS_DIR"/*.md 2>/dev/null
@@ -885,9 +931,10 @@ cmd_search() {
 }
 
 cmd_closed() {
-    local limit=20 assignee_filter="" tag_filter=""
+    local limit=20 assignee_filter="" tag_filter="" json=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --json) json=1; shift ;;
             --limit=*) limit="${1#--limit=}"; shift ;;
             -a) assignee_filter="$2"; shift 2 ;;
             --assignee=*) assignee_filter="${1#--assignee=}"; shift ;;
@@ -901,16 +948,17 @@ cmd_closed() {
     local files
     files=$(ls -t "$TICKETS_DIR"/*.md 2>/dev/null | head -n 100)
     [[ -z "$files" ]] && return 0
-    echo "$files" | xargs awk -v assignee_filter="$assignee_filter" -v tag_filter="$tag_filter" '
+    echo "$files" | xargs awk -v assignee_filter="$assignee_filter" -v tag_filter="$tag_filter" -v json="$json" "$_JSON_AWK"'
     BEGIN { FS=": "; in_front=0 }
     FNR==1 {
         if (prev_file) emit()
-        id=""; status=""; title=""; assignee=""; tags=""; in_front=0
+        id=""; status=""; title=""; assignee=""; tags=""; priority=""; in_front=0
         prev_file=FILENAME
     }
     /^---$/ { in_front = !in_front; next }
     in_front && /^id:/ { id = $2 }
     in_front && /^status:/ { status = $2 }
+    in_front && /^priority:/ { priority = $2 }
     in_front && /^assignee:/ { assignee = $2 }
     in_front && /^tags:/ { tags = $2; gsub(/[][ ]/, "", tags) }
     !in_front && /^# / && title == "" { title = substr($0, 3) }
@@ -922,19 +970,31 @@ cmd_closed() {
     function emit() {
         if (id != "" && (status == "closed" || status == "done") && (assignee_filter == "" || assignee == assignee_filter) && (tag_filter == "" || has_tag(tags, tag_filter))) {
             output[++count] = sprintf("%-8s [%s] - %s", id, status, title)
+            j_id[count] = id; j_status[count] = status; j_title[count] = title
+            j_assignee[count] = assignee; j_tags[count] = tags; j_priority[count] = priority
         }
     }
     END {
         if (prev_file) emit()
-        for (i = 1; i <= count; i++) print output[i]
+        if (json) {
+            printf "["
+            for (i = 1; i <= count; i++) {
+                if (i > 1) printf ","
+                json_row(j_id[i], j_priority[i], j_status[i], j_title[i], j_assignee[i], j_tags[i], "")
+            }
+            printf "]\n"
+        } else {
+            for (i = 1; i <= count; i++) print output[i]
+        }
     }
     ' | head -n "$limit"
 }
 
 cmd_blocked() {
-    local assignee_filter="" tag_filter=""
+    local assignee_filter="" tag_filter="" json=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --json) json=1; shift ;;
             -a) assignee_filter="$2"; shift 2 ;;
             --assignee=*) assignee_filter="${1#--assignee=}"; shift ;;
             -T) tag_filter="$2"; shift 2 ;;
@@ -943,7 +1003,7 @@ cmd_blocked() {
         esac
     done
 
-    awk -v assignee_filter="$assignee_filter" -v tag_filter="$tag_filter" '
+    awk -v assignee_filter="$assignee_filter" -v tag_filter="$tag_filter" -v json="$json" "$_JSON_AWK"'
     BEGIN { FS=": "; in_front=0 }
     FNR==1 {
         if (prev_file) store()
@@ -1022,9 +1082,19 @@ cmd_blocked() {
             }
         }
 
-        for (i = 1; i <= count; i++) {
-            split(output[i], f, "|")
-            printf "%-8s [P%s][%s] - %s <- %s\n", f[2], f[1], f[3], f[4], f[5]
+        if (json) {
+            printf "["
+            for (i = 1; i <= count; i++) {
+                split(output[i], f, "|")
+                if (i > 1) printf ","
+                json_row(f[2], f[1], f[3], f[4], assignees[f[2]], all_tags[f[2]], deps_raw[f[2]])
+            }
+            printf "]\n"
+        } else {
+            for (i = 1; i <= count; i++) {
+                split(output[i], f, "|")
+                printf "%-8s [P%s][%s] - %s <- %s\n", f[2], f[1], f[3], f[4], f[5]
+            }
         }
     }
     ' "$TICKETS_DIR"/*.md 2>/dev/null
@@ -1184,15 +1254,60 @@ cmd_unlink() {
 }
 
 cmd_show() {
-    if [[ $# -lt 1 ]]; then
-        echo "Usage: ticket show <id>" >&2
-        return 1
+    local json=0
+    local args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json) json=1; shift ;;
+            *) args+=("$1"); shift ;;
+        esac
+    done
+    set -- "${args[@]:-}"
+
+    if [[ $# -lt 1 || -z "${1:-}" ]]; then
+        echo "Usage: $(basename "$0") show [--json] <id>" >&2
+        return $EX_USAGE
     fi
 
     local file
     file=$(ticket_path "$1") || return $?
     local target_id
     target_id=$(basename "$file" .md)
+
+    if [[ $json -eq 1 ]]; then
+        # Frontmatter is emitted generically: every key becomes a field, the
+        # three known flow arrays become JSON arrays, priority becomes a number.
+        # Body is everything after the frontmatter, title line included.
+        awk -v json=1 "$_JSON_AWK"'
+        BEGIN { FS=": "; in_front=0; printf "{" }
+        NR==1 && /^---$/ { in_front=1; next }
+        in_front && /^---$/ { in_front=0; next }
+        in_front {
+            key = $1
+            val = substr($0, length(key) + 3)
+            if (key == "deps" || key == "links" || key == "tags") {
+                gsub(/[][ ]/, "", val)
+                printf "%s\"%s\":%s", (n++ ? "," : ""), json_escape(key), json_list(val)
+            } else if (key == "priority") {
+                printf "%s\"priority\":%d", (n++ ? "," : ""), val + 0
+            } else {
+                printf "%s\"%s\":\"%s\"", (n++ ? "," : ""), json_escape(key), json_escape(val)
+            }
+            next
+        }
+        {
+            if (title == "" && substr($0, 1, 2) == "# ") { title = substr($0, 3); next }
+            body = body $0 "\n"
+        }
+        END {
+            printf "%s\"title\":\"%s\"", (n++ ? "," : ""), json_escape(title)
+            sub(/\n+$/, "", body)
+            printf ",\"body\":\"%s\"", json_escape(body)
+            printf "}\n"
+        }
+        ' "$file"
+        return 0
+    fi
 
     _show_output() {
         awk -v target="$target_id" -v target_file="$file" '
@@ -1434,11 +1549,11 @@ Commands:
   undep <id> <dep-id>      Remove dependency
   link <id> <id> [id...]   Link tickets together (symmetric)
   unlink <id> <target-id>  Remove link between tickets
-  ready [-a X] [-T X]      List open/in-progress tickets with deps resolved
-  blocked [-a X] [-T X]    List open/in-progress tickets with unresolved deps
-  closed [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
+  ready [--json] [-a X] [-T X]  List open/in-progress tickets with deps resolved
+  blocked [--json] [-a X] [-T X]  List open/in-progress tickets with unresolved deps
+  closed [--json] [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
   search [--status=X] <terms>  Search title and body, all statuses by default
-  show <id>                Display ticket
+  show [--json] <id>       Display ticket
   add-note <id> [text]     Append timestamped note (or pipe via stdin)
   super <cmd> [args]       Bypass plugins, run built-in command directly
 EOF

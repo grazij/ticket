@@ -520,6 +520,34 @@ def step_command_exit_code(context, code):
         f"stdout: {context.stdout}\nstderr: {context.stderr}"
 
 
+@then(r'the output should be valid JSON')
+def step_output_valid_json(context):
+    """Parse stdout as JSON and stash it, so later steps can assert on fields."""
+    try:
+        context.json = json.loads(context.stdout)
+    except ValueError as exc:
+        raise AssertionError(
+            f"stdout is not valid JSON: {exc}\nstdout: {context.stdout}"
+        ) from exc
+
+
+@then(r'the JSON should be an array of (?P<count>\d+) item')
+def step_json_array_len(context, count):
+    """Assert the parsed JSON is a list of the given length."""
+    assert isinstance(context.json, list), f"expected a list, got {type(context.json).__name__}"
+    assert len(context.json) == int(count), \
+        f"expected {count} item(s), got {len(context.json)}: {context.json}"
+
+
+@then(r'the JSON field "(?P<path>[^"]+)" should be "(?P<expected>[^"]*)"')
+def step_json_field(context, path, expected):
+    """Assert a dotted path into the parsed JSON. Numeric segments index lists."""
+    value = context.json
+    for part in path.split('.'):
+        value = value[int(part)] if isinstance(value, list) else value[part]
+    assert str(value) == expected, f"{path}: expected {expected!r}, got {value!r}"
+
+
 @then(r'the output should be "(?P<expected>[^"]*)"')
 def step_output_equals(context, expected):
     """Assert output exactly matches expected string."""

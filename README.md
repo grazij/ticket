@@ -78,11 +78,11 @@ Commands:
   undep <id> <dep-id>      Remove dependency
   link <id> <id> [id...]   Link tickets together (symmetric)
   unlink <id> <target-id>  Remove link between tickets
-  ready [-a X] [-T X]      List open/in-progress tickets with deps resolved
-  blocked [-a X] [-T X]    List open/in-progress tickets with unresolved deps
-  closed [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
+  ready [--json] [-a X] [-T X]  List open/in-progress tickets with deps resolved
+  blocked [--json] [-a X] [-T X]  List open/in-progress tickets with unresolved deps
+  closed [--json] [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
   search [--status=X] <terms>  Search title and body, all statuses by default
-  show <id>                Display ticket
+  show [--json] <id>       Display ticket
   add-note <id> [text]     Append timestamped note (or pipe via stdin)
   super <cmd> [args]       Bypass plugins, run built-in command directly
 

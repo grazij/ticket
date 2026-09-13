@@ -14,6 +14,9 @@
   `.tickets` directory without parsing stderr
 
 ### Added
+- `--json` on `ready`, `blocked`, `closed` and `show`: machine-readable output from the
+  core script with no `jq` dependency. Text remains the default. Escaping lives in one
+  shared awk function rather than per command
 - `reject <id> [--reason <text>]` command and a `rejected` status: work decided against is
   no longer recorded as `closed`, which asserted it was done. `ready`, `blocked` and
   `closed` all exclude it; `search` still finds it, including by the reason text
