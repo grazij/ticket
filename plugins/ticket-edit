@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tk-plugin: Open ticket in $EDITOR
-# tk-plugin-version: 1.0.3
+# tk-plugin-version: 1.0.4
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
@@ -18,10 +18,18 @@ if [[ "$id" == */* || "$id" == *..* ]]; then
     exit 1
 fi
 
-# Resolve ticket file (exact or partial match)
+# Resolve ticket file (exact or partial match). $id is matched as a literal
+# substring of the basename, not as a find/fnmatch pattern -- otherwise a
+# caller-supplied ID containing *, ? or [...] would be interpreted as a glob
+# instead of matched literally.
 file="$TICKETS_DIR/${id}.md"
 if [[ ! -f "$file" ]]; then
-    matches=$(find -L "$TICKETS_DIR" -maxdepth 1 -name "*${id}*.md" 2>/dev/null)
+    matches=$(find -L "$TICKETS_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | awk -v id="$id" '
+        {
+            n = split($0, parts, "/")
+            if (index(parts[n], id) > 0) print
+        }
+    ')
     count=$(printf '%s\n' "$matches" | grep -c . 2>/dev/null || true)
     if [[ "$count" -eq 1 ]]; then
         file="$matches"

@@ -120,3 +120,49 @@ Feature: Ticket ID Resolution
     When I run "ticket show 1.2"
     Then the command should succeed
     And the output should contain "id: v1.2-beta_x"
+
+  Scenario: A glob star in the ID is matched literally, not as a wildcard
+    Given a ticket exists with ID "aa-myvw" and title "First ticket"
+    And a ticket exists with ID "aa-ovhc" and title "Second ticket"
+    When I run "ticket show '*'"
+    Then the command should fail
+    And the output should contain "Error: ticket '*' not found"
+
+  Scenario: A glob question mark in the ID is matched literally, not as a wildcard
+    Given a ticket exists with ID "aa-myvw" and title "First ticket"
+    And a ticket exists with ID "aa-ovhc" and title "Second ticket"
+    When I run "ticket show 'myv?'"
+    Then the command should fail
+    And the output should contain "Error: ticket 'myv?' not found"
+
+  Scenario: A well-formed bracket expression in the ID is matched literally, not as a wildcard
+    Given a ticket exists with ID "aa-myvw" and title "First ticket"
+    When I run "ticket show '[am]a-myvw'"
+    Then the command should fail
+    And the output should contain "Error: ticket '[am]a-myvw' not found"
+
+  Scenario: A glob star does not mutate the only ticket in the store
+    Given a ticket exists with ID "aa-gt85" and title "Only ticket"
+    When I run "ticket close '*'"
+    Then the command should fail
+    And the output should contain "Error: ticket '*' not found"
+    And ticket "aa-gt85" should have field "status" with value "open"
+
+  Scenario: A glob question mark does not mutate the only ticket in the store
+    Given a ticket exists with ID "aa-gt85" and title "Only ticket"
+    When I run "ticket close '?'"
+    Then the command should fail
+    And the output should contain "Error: ticket '?' not found"
+    And ticket "aa-gt85" should have field "status" with value "open"
+
+  Scenario: Glob-shaped ID is matched literally by the edit plugin too
+    Given a ticket exists with ID "aa-gt85" and title "Only ticket"
+    When I run "ticket edit '*'"
+    Then the command should fail
+    And the output should contain "Error: ticket '*' not found"
+
+  Scenario: Partial ID match does not match the tickets directory path itself
+    Given a separate tickets directory exists at "foo/.tickets" with ticket "abc-1234" titled "Test ticket"
+    When I run "ticket show foo" with TICKETS_DIR set to "foo/.tickets"
+    Then the command should fail
+    And the output should contain "Error: ticket 'foo' not found"

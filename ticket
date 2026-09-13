@@ -130,9 +130,17 @@ ticket_path() {
         return 0
     fi
 
-    # Try partial match (anywhere in filename)
+    # Try partial match (anywhere in filename). $id is matched as a literal
+    # substring of the basename, not as a find/fnmatch pattern -- otherwise a
+    # caller-supplied ID containing *, ? or [...] would be interpreted as a
+    # glob instead of matched literally (see validate_id() above).
     local matches
-    matches=$(find -L "$TICKETS_DIR" -maxdepth 1 -name "*${id}*.md" 2>/dev/null | head -2)
+    matches=$(find -L "$TICKETS_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | awk -v id="$id" '
+        {
+            n = split($0, parts, "/")
+            if (index(parts[n], id) > 0) print
+        }
+    ' | head -2)
     local count
     count=$(echo "$matches" | _grep -c . || true)
 

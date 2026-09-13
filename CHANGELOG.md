@@ -32,12 +32,18 @@
   both Homebrew and AUR
 - `unlink` no longer silently no-ops (while still printing success) when the
   tickets directory path contains a colon
+- A partial ticket ID containing `*`, `?`, or a bracket expression is now
+  matched as a literal substring of the ticket filename instead of a shell
+  glob pattern, in both the core script and `ticket-edit`; previously such an
+  ID could resolve to -- and mutate -- a ticket the caller never named (e.g.
+  `tk close '*'` silently closing the only ticket in the store)
 
 ### Plugins
 - ticket-edit 1.0.0: Open ticket in $EDITOR (extracted from core)
 - ticket-edit 1.0.1: Handle `$EDITOR` values that carry flags (`code -w`) or contain spaces
 - ticket-edit 1.0.2: Reject ticket IDs containing `/` or `..`, which could open files outside the tickets directory
 - ticket-edit 1.0.3: Partial ID matching now follows a symlinked tickets directory (`find -L`), and a no-match partial ID reports "not found" instead of a bash arithmetic syntax error
+- ticket-edit 1.0.4: Partial ID matching treats `*`, `?`, and bracket expressions in the ID as literal text, not a glob pattern
 - ticket-ls 1.0.0: List tickets with optional filters (extracted from core); `ticket-list` symlink for alias
 - ticket-ls 1.0.1: POSIX-portable awk bracket expressions for busybox
 - ticket-query 1.0.0: Output tickets as JSON, optionally filtered with jq (extracted from core)
