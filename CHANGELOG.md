@@ -30,6 +30,8 @@
   plugin alias symlink regardless of how its target is spelled (bare,
   `./`-prefixed, or absolute), so an alias can no longer silently vanish from
   both Homebrew and AUR
+- `unlink` no longer silently no-ops (while still printing success) when the
+  tickets directory path contains a colon
 
 ### Plugins
 - ticket-edit 1.0.0: Open ticket in $EDITOR (extracted from core)

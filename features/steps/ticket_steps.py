@@ -987,3 +987,13 @@ def step_path_is_symlink_to(context, link_path, target_name):
     assert resolved == target_name, (
         f"{path} -> {link_target} (basename {resolved!r}), expected {target_name!r}"
     )
+@then(r'ticket "(?P<ticket_id>[^"]+)" in "(?P<dir_path>[^"]+)" should not have "(?P<link_id>[^"]+)" in links')
+def step_ticket_not_has_link_in_dir(context, ticket_id, dir_path, link_id):
+    """Assert a ticket in a non-default tickets directory does not have a link."""
+    ticket_path = Path(context.test_dir) / dir_path / f'{ticket_id}.md'
+    content = ticket_path.read_text()
+
+    links_match = re.search(r'^links:\s*\[([^\]]*)\]', content, re.MULTILINE)
+    assert links_match, f"links field not found\nContent: {content}"
+    links = links_match.group(1)
+    assert link_id not in links, f"Link '{link_id}' should not be in links: [{links}]"

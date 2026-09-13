@@ -1040,8 +1040,11 @@ cmd_unlink() {
     fi
 
     # Remove from both files
-    for pair in "$file:$target_id" "$target_file:$id"; do
-        local f="${pair%%:*}" tid="${pair#*:}"
+    local _unlink_files=("$file" "$target_file")
+    local _unlink_tids=("$target_id" "$id")
+    local _unlink_i
+    for _unlink_i in 0 1; do
+        local f="${_unlink_files[$_unlink_i]}" tid="${_unlink_tids[$_unlink_i]}"
         local links
         links=$(yaml_field "$f" "links" || true)
         [[ -z "$links" ]] || ! echo "$links" | _grep -q "$tid" && continue

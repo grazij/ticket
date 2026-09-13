@@ -56,3 +56,13 @@ Feature: Ticket Links
     When I run "ticket link link-0001 link-0002 link-0003"
     Then the command should succeed
     And the output should contain "Added 4 link(s) between 3 tickets"
+
+  Scenario: Unlink removes links from both tickets when the tickets path contains a colon
+    Given a separate tickets directory exists at "we:ird" with ticket "link-0001" titled "First ticket"
+    And a separate tickets directory exists at "we:ird" with ticket "link-0002" titled "Second ticket"
+    When I run "ticket link link-0001 link-0002" with TICKETS_DIR set to "we:ird"
+    And I run "ticket unlink link-0001 link-0002" with TICKETS_DIR set to "we:ird"
+    Then the command should succeed
+    And the output should be "Removed link: link-0001 <-> link-0002"
+    And ticket "link-0001" in "we:ird" should not have "link-0002" in links
+    And ticket "link-0002" in "we:ird" should not have "link-0001" in links
