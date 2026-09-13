@@ -169,6 +169,31 @@ def step_ticket_linked_to(context, ticket_id, link_id):
     link_path.write_text(content)
 
 
+@given(r'ticket "(?P<ticket_id>[^"]+)" has tags value: (?P<tags_value>.+)')
+def step_ticket_has_tags_value(context, ticket_id, tags_value):
+    """Insert a raw `tags: <value>` frontmatter line verbatim, e.g. quoted or unquoted array form."""
+    ticket_path = Path(context.test_dir) / '.tickets' / f'{ticket_id}.md'
+    content = ticket_path.read_text()
+    lines = content.split('\n')
+    dash_count = 0
+    for i, line in enumerate(lines):
+        if line == '---':
+            dash_count += 1
+            if dash_count == 2:
+                lines.insert(i, f'tags: {tags_value}')
+                break
+    ticket_path.write_text('\n'.join(lines))
+
+
+@given(r'ticket "(?P<ticket_id>[^"]+)" has a horizontal rule followed by "(?P<text>[^"]+)" in the body')
+def step_ticket_has_hr_in_body(context, ticket_id, text):
+    """Append a markdown horizontal rule (---) followed by colon-bearing text to the ticket body."""
+    ticket_path = Path(context.test_dir) / '.tickets' / f'{ticket_id}.md'
+    content = ticket_path.read_text()
+    content += f'\n---\n\n{text}\n'
+    ticket_path.write_text(content)
+
+
 @given(r'ticket "(?P<ticket_id>[^"]+)" has a notes section')
 def step_ticket_has_notes(context, ticket_id):
     """Ensure ticket has a notes section."""
@@ -672,6 +697,33 @@ def step_jsonl_has_field(context, field):
             data = json.loads(line)
             assert field in data, f"Field '{field}' not found in JSONL\nData: {data}"
             break
+
+
+@then(r'the JSONL output should not have field "(?P<field>[^"]+)"')
+def step_jsonl_not_has_field(context, field):
+    """Assert no line of JSONL output has the given field."""
+    lines = context.stdout.strip().split('\n')
+    for line in lines:
+        if line.strip():
+            data = json.loads(line)
+            assert field not in data, f"Field '{field}' unexpectedly found in JSONL\nData: {data}"
+
+
+@then(r'the JSONL field "(?P<field>[^"]+)" should equal (?P<expected_json>.+)')
+def step_jsonl_field_equals(context, field, expected_json):
+    """Assert the given field in JSONL output equals the given JSON value, for the first line that has it."""
+    expected = json.loads(expected_json)
+    lines = context.stdout.strip().split('\n')
+    assert lines, "No JSONL output"
+
+    for line in lines:
+        if line.strip():
+            data = json.loads(line)
+            if field in data:
+                assert data[field] == expected, \
+                    f"Field '{field}' is {data[field]!r}, expected {expected!r}"
+                return
+    raise AssertionError(f"No JSONL line with field '{field}' found")
 
 
 @then(r'the JSONL deps field should be a JSON array')

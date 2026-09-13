@@ -46,3 +46,33 @@ Feature: Ticket Query
     When I run "ticket query"
     Then the command should succeed
     And the JSONL deps field should be a JSON array
+
+  Scenario: Query preserves already-quoted tags as valid JSON
+    Given a ticket exists with ID "query-001" and title "Quoted tags ticket"
+    And ticket "query-001" has tags value: ["a", "b"]
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "tags" should equal ["a", "b"]
+
+  Scenario: Query keeps unquoted tags as valid JSON
+    Given a ticket exists with ID "query-001" and title "Unquoted tags ticket"
+    And ticket "query-001" has tags value: [a, b]
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "tags" should equal ["a", "b"]
+
+  Scenario: Query ignores a markdown horizontal rule in the ticket body
+    Given a ticket exists with ID "query-001" and title "HR body ticket"
+    And ticket "query-001" has a horizontal rule followed by "foo: bar" in the body
+    When I run "ticket query"
+    Then the command should succeed
+    And the JSONL output should not have field "foo"
+
+  Scenario: Query parses a normal body with no horizontal rule
+    Given a ticket exists with ID "query-001" and title "Normal body ticket"
+    When I run "ticket query"
+    Then the command should succeed
+    And the JSONL output should have field "id"
+    And the JSONL output should not have field "foo"

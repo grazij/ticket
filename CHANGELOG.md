@@ -25,6 +25,7 @@
 - ticket-edit 1.0.1: Handle `$EDITOR` values that carry flags (`code -w`) or contain spaces
 - ticket-ls 1.0.0: List tickets with optional filters (extracted from core); `ticket-list` symlink for alias
 - ticket-query 1.0.0: Output tickets as JSON, optionally filtered with jq (extracted from core)
+- ticket-query 1.0.1: Fixed quoted YAML array tags producing invalid JSON, and body horizontal rules (`---`) being misparsed as frontmatter
 - ticket-migrate-beads 1.0.0: Import tickets from .beads/issues.jsonl (extracted from core)
 
 ## [0.3.2] - 2026-02-03
