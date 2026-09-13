@@ -14,6 +14,9 @@
   `.tickets` directory without parsing stderr
 
 ### Added
+- `--json` on `search`: emits the same rows as `ready`, `blocked` and `closed`, from the
+  same shared awk escaping. `search` is the only command that reaches closed and rejected
+  tickets, so it had no JSON-emitting substitute. No match prints `[]` and exits 0
 - `--json` on `ready`, `blocked`, `closed` and `show`: machine-readable output from the
   core script with no `jq` dependency. Text remains the default. Escaping lives in one
   shared awk function rather than per command

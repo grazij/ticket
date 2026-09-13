@@ -81,7 +81,7 @@ Commands:
   ready [--json] [-a X] [-T X]  List open/in-progress tickets with deps resolved
   blocked [--json] [-a X] [-T X]  List open/in-progress tickets with unresolved deps
   closed [--json] [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
-  search [--status=X] <terms>  Search title and body, all statuses by default
+  search [--json] [--status=X] <terms>  Search title and body, all statuses by default
   show [--json] <id>       Display ticket
   add-note <id> [text]     Append timestamped note (or pipe via stdin)
   super <cmd> [args]       Bypass plugins, run built-in command directly

@@ -73,3 +73,34 @@ Feature: JSON Output
     Then the command should succeed
     And the output should contain "abc-1010"
     And the output should not contain "{"
+
+  Scenario: search --json emits the same row shape as ready --json
+    Given a ticket exists with ID "abc-1111" and title "json test" with priority 1
+    And ticket "abc-1111" has tags value: [ui, backend]
+    And a ticket exists with ID "abc-2222" and title "the blocker"
+    And ticket "abc-1111" depends on "abc-2222"
+    When I run "ticket search --json json test"
+    Then the command should succeed
+    And the output should be valid JSON
+    And the JSON field "0.id" should be "abc-1111"
+    And the JSON field "0.status" should be "open"
+    And the JSON field "0.priority" should be "1"
+    And the JSON field "0.title" should be "json test"
+    And the JSON field "0.tags.0" should be "ui"
+    And the JSON field "0.tags.1" should be "backend"
+    And the JSON field "0.deps.0" should be "abc-2222"
+
+  Scenario: search --json escapes a double quote in a field value
+    Given a ticket exists with ID "abc-3333" and title "quote test"
+    And ticket "abc-3333" has scalar field "assignee" set to: say "hello" loudly
+    When I run "ticket search --json quote test"
+    Then the command should succeed
+    And the output should be valid JSON
+    And the JSON field "0.id" should be "abc-3333"
+
+  Scenario: search text output remains the default
+    Given a ticket exists with ID "abc-4444" and title "json test"
+    When I run "ticket search json test"
+    Then the command should succeed
+    And the output should contain "abc-4444"
+    And the output should not contain "{"

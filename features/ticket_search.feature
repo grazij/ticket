@@ -62,3 +62,44 @@ Feature: Ticket Search
   Scenario: An invalid status filter is a usage error
     When I run "ticket search --status=bogus quoting"
     Then the command should exit with code 1
+
+  Scenario: search --json emits a JSON array
+    Given a ticket exists with ID "abc-1212" and title "quoting bug in query plugin"
+    When I run "ticket search --json quoting"
+    Then the command should succeed
+    And the output should be valid JSON
+    And the JSON should be an array of 1 item
+    And the JSON field "0.id" should be "abc-1212"
+
+  Scenario: search --json reaches a closed ticket
+    Given a ticket exists with ID "abc-1313" and title "quoting done"
+    And ticket "abc-1313" has status "closed"
+    When I run "ticket search --json quoting"
+    Then the command should succeed
+    And the output should be valid JSON
+    And the JSON field "0.status" should be "closed"
+
+  Scenario: search --json reaches a rejected ticket
+    Given a ticket exists with ID "abc-1414" and title "quoting wontfix"
+    And ticket "abc-1414" has status "rejected"
+    When I run "ticket search --json quoting"
+    Then the command should succeed
+    And the output should be valid JSON
+    And the JSON field "0.status" should be "rejected"
+
+  Scenario: The status filter narrows search --json
+    Given a ticket exists with ID "abc-1515" and title "quoting open"
+    And a ticket exists with ID "abc-1616" and title "quoting done"
+    And ticket "abc-1616" has status "closed"
+    When I run "ticket search --json --status=closed quoting"
+    Then the command should succeed
+    And the output should be valid JSON
+    And the JSON should be an array of 1 item
+    And the JSON field "0.id" should be "abc-1616"
+
+  Scenario: search --json with no match is an empty array
+    Given a ticket exists with ID "abc-1717" and title "something else"
+    When I run "ticket search --json zzzznope"
+    Then the command should succeed
+    And the output should be valid JSON
+    And the JSON should be an array of 0 item

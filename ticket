@@ -865,10 +865,11 @@ cmd_ready() {
 # closed tickets: an item already closed or rejected is a duplicate, not a fresh
 # investigation, and a search that hides them causes the work to be redone.
 cmd_search() {
-    local status_filter=""
+    local status_filter="" json=0
     local terms=()
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --json) json=1; shift ;;
             --status=*) status_filter="${1#--status=}"; shift ;;
             --status) status_filter="${2:-}"; shift 2 ;;
             -*) echo "Error: unknown option '$1'" >&2; return $EX_USAGE ;;
@@ -880,24 +881,27 @@ cmd_search() {
     # cmd_create joins a title. `search quoting bug` looks for "quoting bug".
     local query="${terms[*]:-}"
     if [[ -z "$query" ]]; then
-        echo "Usage: $(basename "$0") search [--status=X] <terms>" >&2
+        echo "Usage: $(basename "$0") search [--json] [--status=X] <terms>" >&2
         return $EX_USAGE
     fi
     if [[ -n "$status_filter" ]]; then
         validate_status "$status_filter" || return $EX_USAGE
     fi
 
-    awk -v query="$query" -v status_filter="$status_filter" '
+    awk -v query="$query" -v status_filter="$status_filter" -v json="$json" "$_JSON_AWK"'
     BEGIN { FS=": "; in_front=0; q=tolower(query) }
     FNR==1 {
         if (prev_file) emit()
-        id=""; status=""; priority=""; title=""; hay=""; in_front=0
+        id=""; status=""; priority=""; title=""; assignee=""; tags=""; deps=""; hay=""; in_front=0
         prev_file=FILENAME
     }
     /^---$/ { in_front = !in_front; next }
     in_front && /^id:/ { id = $2; next }
     in_front && /^status:/ { status = $2; next }
     in_front && /^priority:/ { priority = $2; next }
+    in_front && /^assignee:/ { assignee = $2; next }
+    in_front && /^tags:/ { tags = $2; gsub(/[][ ]/, "", tags); next }
+    in_front && /^deps:/ { deps = $2; gsub(/[][ ]/, "", deps); next }
     in_front { next }
     {
         if (title == "" && substr($0, 1, 2) == "# ") title = substr($0, 3)
@@ -909,6 +913,7 @@ cmd_search() {
         if (index(hay, q) == 0) return
         p = (priority != "") ? priority : 2
         output[++count] = sprintf("%s|%s|%s|%s", p, id, status, title)
+        j_assignee[id] = assignee; j_tags[id] = tags; j_deps[id] = deps
     }
     END {
         if (prev_file) emit()
@@ -922,9 +927,19 @@ cmd_search() {
                 }
             }
         }
-        for (i = 1; i <= count; i++) {
-            split(output[i], f, "|")
-            printf "%-8s [P%s][%s] - %s\n", f[2], f[1], f[3], f[4]
+        if (json) {
+            printf "["
+            for (i = 1; i <= count; i++) {
+                split(output[i], f, "|")
+                if (i > 1) printf ","
+                json_row(f[2], f[1], f[3], f[4], j_assignee[f[2]], j_tags[f[2]], j_deps[f[2]])
+            }
+            printf "]\n"
+        } else {
+            for (i = 1; i <= count; i++) {
+                split(output[i], f, "|")
+                printf "%-8s [P%s][%s] - %s\n", f[2], f[1], f[3], f[4]
+            }
         }
     }
     ' "$TICKETS_DIR"/*.md 2>/dev/null
@@ -1552,7 +1567,7 @@ Commands:
   ready [--json] [-a X] [-T X]  List open/in-progress tickets with deps resolved
   blocked [--json] [-a X] [-T X]  List open/in-progress tickets with unresolved deps
   closed [--json] [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
-  search [--status=X] <terms>  Search title and body, all statuses by default
+  search [--json] [--status=X] <terms>  Search title and body, all statuses by default
   show [--json] <id>       Display ticket
   add-note <id> [text]     Append timestamped note (or pipe via stdin)
   super <cmd> [args]       Bypass plugins, run built-in command directly
