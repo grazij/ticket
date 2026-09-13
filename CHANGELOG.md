@@ -20,12 +20,16 @@
 - Multi-word titles for `tk create` (`tk create fix the bug` kept only `bug`)
 - `TICKET_PAGER=""` no longer falls back to `PAGER`
 - Path traversal via ticket ID: IDs containing `/` or `..` are now rejected, so `tk show ../secret` and `tk add-note ../../secret` can no longer read or modify files outside the tickets directory
+- awk bracket expressions are POSIX-portable, so `ready`, `blocked`, `ls`,
+  `dep tree`, `show` and `link` work on busybox awk instead of silently
+  returning wrong results with exit status 0
 
 ### Plugins
 - ticket-edit 1.0.0: Open ticket in $EDITOR (extracted from core)
 - ticket-edit 1.0.1: Handle `$EDITOR` values that carry flags (`code -w`) or contain spaces
 - ticket-edit 1.0.2: Reject ticket IDs containing `/` or `..`, which could open files outside the tickets directory
 - ticket-ls 1.0.0: List tickets with optional filters (extracted from core); `ticket-list` symlink for alias
+- ticket-ls 1.0.1: POSIX-portable awk bracket expressions for busybox
 - ticket-query 1.0.0: Output tickets as JSON, optionally filtered with jq (extracted from core)
 - ticket-query 1.0.1: Fixed quoted YAML array tags producing invalid JSON, and body horizontal rules (`---`) being misparsed as frontmatter
 - ticket-migrate-beads 1.0.0: Import tickets from .beads/issues.jsonl (extracted from core)

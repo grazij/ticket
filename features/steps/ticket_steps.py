@@ -938,3 +938,39 @@ def step_editor_received(context, text):
     assert any(text in arg for arg in args), (
         f"Expected an editor argument containing '{text}'\nActual arguments: {args}"
     )
+
+
+@given(r'the shipped scripts')
+def step_shipped_scripts(context):
+    """Collect the executables this project installs."""
+    root = Path(context.project_dir)
+    scripts = [root / 'ticket']
+    scripts += sorted(
+        f for f in (root / 'plugins').glob('ticket-*')
+        if f.is_file() and not f.is_symlink()
+    )
+    context.shipped_scripts = scripts
+    assert scripts, f"No shipped scripts found under {root}"
+
+
+@then(r'no bracket expression contains a backslash-escaped bracket')
+def step_no_escaped_bracket_in_class(context):
+    """POSIX awk treats a backslash literally inside a bracket expression.
+
+    /[\\[\\] ]/ therefore becomes the class {backslash, [} followed by a
+    literal "] ", so it never strips the brackets and spaces it was written to
+    strip. On busybox awk that makes `ready` return nothing and `blocked`,
+    `ls -T`, `dep tree` and `show` report wrong dependencies -- all with exit
+    status 0. Write bracket expressions the POSIX way instead: [][ ].
+    """
+    # An UNESCAPED [ opens a bracket expression; a \[ or \] after it is the
+    # bug. The lookbehind matters: outside a bracket expression \[ and \] are
+    # correct and portable, as in /^\[.*\]$/, and that [ must not count as an
+    # opening one.
+    offender = re.compile(r'(?<!\\)\[[^]\n]*\\[\[\]]')
+    hits = []
+    for script in context.shipped_scripts:
+        for lineno, line in enumerate(script.read_text().splitlines(), 1):
+            if offender.search(line):
+                hits.append(f"{script.name}:{lineno}: {line.strip()}")
+    assert not hits, "GNU-only bracket expressions found:\n" + "\n".join(hits)
