@@ -36,3 +36,10 @@ Feature: Ticket Edit
     Then the command should succeed
     And the editor should have received "--wait"
     And the editor should have received "edit-0001.md"
+
+  Scenario: Path traversal in ID is rejected by edit
+    Given a file "outside.md" exists outside the tickets directory containing "TOP SECRET"
+    When I run "ticket edit ../outside" in non-TTY mode
+    Then the command should fail
+    And the output should contain "Error: invalid ticket ID '../outside'"
+    And the file "outside.md" outside the tickets directory should be unchanged

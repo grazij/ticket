@@ -235,6 +235,18 @@ Description
     ticket_path.write_text(content)
 
 
+@given(r'a file "(?P<name>[^"]+)" exists outside the tickets directory containing "(?P<content>[^"]*)"')
+def step_file_outside_tickets_dir(context, name, content):
+    """Create a file above .tickets, to be the target of a traversal attempt."""
+    path = Path(context.test_dir) / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+
+    if not hasattr(context, 'outside_files'):
+        context.outside_files = {}
+    context.outside_files[name] = content
+
+
 @given(r'a symlinked tickets directory')
 def step_symlinked_tickets_directory(context):
     """Create .tickets as a symlink to a real directory elsewhere."""
@@ -652,6 +664,17 @@ def step_ticket_has_timestamp_in_notes(context, ticket_id):
     pattern = r'\*\*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\*\*'
     assert re.search(pattern, content), \
         f"No timestamp found in notes\nContent: {content}"
+
+
+@then(r'the file "(?P<name>[^"]+)" outside the tickets directory should be unchanged')
+def step_outside_file_unchanged(context, name):
+    """Assert a traversal attempt did not touch the file above .tickets."""
+    expected = context.outside_files[name]
+    path = Path(context.test_dir) / name
+    assert path.exists(), f"File {path} no longer exists"
+    actual = path.read_text()
+    assert actual == expected, \
+        f"File {name} was modified outside .tickets\nExpected: {expected!r}\nActual: {actual!r}"
 
 
 @then(r'the output line (?P<line_num>\d+) should contain "(?P<text>[^"]+)"')

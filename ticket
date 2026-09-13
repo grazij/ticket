@@ -105,11 +105,24 @@ ensure_dir() {
     mkdir -p "$TICKETS_DIR"
 }
 
+# Reject IDs that could escape TICKETS_DIR. A ticket ID names one file inside
+# the tickets directory, so it can never contain a path separator or a parent
+# reference; everything else stays legal, since IDs are renameable by hand.
+validate_id() {
+    local id="$1"
+    if [[ "$id" == */* || "$id" == *..* ]]; then
+        echo "Error: invalid ticket ID '$id' (must not contain '/' or '..')" >&2
+        return 1
+    fi
+    return 0
+}
+
 # Get ticket file path (supports partial ID matching)
 ticket_path() {
     local id="$1"
     # Trim leading/trailing whitespace (handles Claude/agent quirks)
     read -r id <<< "$id"
+    validate_id "$id" || return 1
     local exact="$TICKETS_DIR/${id}.md"
 
     if [[ -f "$exact" ]]; then
