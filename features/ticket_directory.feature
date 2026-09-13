@@ -113,3 +113,27 @@ Feature: Ticket Directory Resolution
     Then the command should fail
     And the output should contain "tickets directory"
     And the output should contain "does not exist"
+
+  Scenario: List reports no tickets directory instead of an unbound variable error
+    Given the tickets directory does not exist
+    And I am in subdirectory "orphan/deep/path"
+    When I run "ticket ls"
+    Then the command should fail
+    And the output should contain "no .tickets directory found"
+    And the output should not contain "unbound variable"
+
+  Scenario: Query reports no tickets directory instead of an unbound variable error
+    Given the tickets directory does not exist
+    And I am in subdirectory "orphan/deep/path"
+    When I run "ticket query"
+    Then the command should fail
+    And the output should contain "no .tickets directory found"
+    And the output should not contain "unbound variable"
+
+  Scenario: Edit reports no tickets directory instead of an unbound variable error
+    Given the tickets directory does not exist
+    And I am in subdirectory "orphan/deep/path"
+    When I run "ticket edit edit-0001"
+    Then the command should fail
+    And the output should contain "no .tickets directory found"
+    And the output should not contain "unbound variable"

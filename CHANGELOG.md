@@ -44,6 +44,10 @@
   `edit` now report `Error: tickets directory '<path>' does not exist`
   themselves instead of silently matching nothing (or, for `edit`, failing
   with no message at all)
+- `ls`, `query`, and `edit` now report `Error: no .tickets directory found
+  (searched parent directories)` -- the same message the core script gives --
+  when `TICKETS_DIR` is unset and no `.tickets` exists in any parent
+  directory, instead of dying with a bash `unbound variable` diagnostic
 
 ### Plugins
 - ticket-edit 1.0.0: Open ticket in $EDITOR (extracted from core)
@@ -52,13 +56,16 @@
 - ticket-edit 1.0.3: Partial ID matching now follows a symlinked tickets directory (`find -L`), and a no-match partial ID reports "not found" instead of a bash arithmetic syntax error
 - ticket-edit 1.0.4: Partial ID matching treats `*`, `?`, and bracket expressions in the ID as literal text, not a glob pattern
 - ticket-edit 1.0.5: Reports a missing `TICKETS_DIR` instead of failing with no message
+- ticket-edit 1.0.6: Reports `no .tickets directory found` instead of an `unbound variable` error when `TICKETS_DIR` is unset entirely
 - ticket-ls 1.0.0: List tickets with optional filters (extracted from core); `ticket-list` symlink for alias
 - ticket-ls 1.0.1: POSIX-portable awk bracket expressions for busybox
 - ticket-ls 1.0.2: Report a missing `TICKETS_DIR` instead of silently listing nothing
+- ticket-ls 1.0.3: Reports `no .tickets directory found` instead of an `unbound variable` error when `TICKETS_DIR` is unset entirely
 - ticket-query 1.0.0: Output tickets as JSON, optionally filtered with jq (extracted from core)
 - ticket-query 1.0.1: Fixed quoted YAML array tags producing invalid JSON, and body horizontal rules (`---`) being misparsed as frontmatter
 - ticket-query 1.0.2: Strip single-quoted YAML array items the same as double-quoted ones, and escape embedded double quotes, so single-quoted tags no longer keep their quotes or break JSON
 - ticket-query 1.0.3: Report a missing `TICKETS_DIR` instead of silently outputting nothing
+- ticket-query 1.0.4: Reports `no .tickets directory found` instead of an `unbound variable` error when `TICKETS_DIR` is unset entirely
 - ticket-migrate-beads 1.0.0: Import tickets from .beads/issues.jsonl (extracted from core)
 
 ## [0.3.2] - 2026-02-03
