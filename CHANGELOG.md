@@ -23,6 +23,9 @@
 - awk bracket expressions are POSIX-portable, so `ready`, `blocked`, `ls`,
   `dep tree`, `show` and `link` work on busybox awk instead of silently
   returning wrong results with exit status 0
+- `help` reports the tickets directory actually in use, instead of always
+  claiming `.tickets/` when `TICKETS_DIR` is set or the store was found in a
+  parent directory
 
 ### Plugins
 - ticket-edit 1.0.0: Open ticket in $EDITOR (extracted from core)

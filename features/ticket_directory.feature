@@ -76,3 +76,15 @@ Feature: Ticket Directory Resolution
     When I run "ticket help"
     Then the command should succeed
     And the output should contain "minimal ticket system"
+
+  Scenario: Help reports the tickets directory from TICKETS_DIR
+    When I run "ticket help" with TICKETS_DIR set to "custom-tickets"
+    Then the command should succeed
+    And the output should contain "custom-tickets"
+    And the output should not contain "in .tickets/"
+
+  Scenario: Help reports the default location when no tickets directory exists
+    Given the tickets directory does not exist
+    When I run "ticket help"
+    Then the command should succeed
+    And the output should contain ".tickets/"

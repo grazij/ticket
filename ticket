@@ -1323,6 +1323,12 @@ $plugins
 EOF
     fi
 
+    # Report where tickets actually live, not a fixed guess: TICKETS_DIR or a
+    # parent's .tickets both override the default.
+    local store
+    store=$(find_tickets_dir 2>/dev/null) \
+        || store=".tickets/ (none found; '$cmd create' initializes one here)"
+
     cat << EOF
 
 Use 'super' to bypass plugins. Plugins receive TICKETS_DIR and TK_SCRIPT
@@ -1330,7 +1336,7 @@ env vars; use '\$TK_SCRIPT super <cmd>' to call built-ins.
 
 Plugin descriptions: comment '# tk-plugin: text' or --tk-describe flag
 
-Tickets stored as markdown files in .tickets/
+Tickets stored as markdown files in $store
 Supports partial ID matching (e.g., '$cmd show 5c4' matches 'nw-5c46')
 EOF
 }
