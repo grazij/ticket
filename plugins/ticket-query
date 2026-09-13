@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tk-plugin: Output tickets as JSON, optionally filtered with jq
-# tk-plugin-version: 1.0.1
+# tk-plugin-version: 1.0.2
 set -euo pipefail
 
 filter="${1:-}"
@@ -43,7 +43,11 @@ function emit() {
                 for (j = 1; j <= n; j++) {
                     if (j > 1) printf ","
                     gsub(/^ +| +$/, "", items[j])
-                    gsub(/^"|"$/, "", items[j])
+                    if (items[j] ~ /^".*"$/ || items[j] ~ /^'"'"'.*'"'"'$/) {
+                        items[j] = substr(items[j], 2, length(items[j]) - 2)
+                    }
+                    gsub(/\\/, "\\\\", items[j])
+                    gsub(/"/, "\\\"", items[j])
                     if (items[j] != "") printf "\"%s\"", items[j]
                 }
                 printf "]"

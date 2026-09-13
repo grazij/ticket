@@ -63,6 +63,38 @@ Feature: Ticket Query
     And the output should be valid JSONL
     And the JSONL field "tags" should equal ["a", "b"]
 
+  Scenario: Query converts single-quoted tags to valid JSON
+    Given a ticket exists with ID "query-001" and title "Single quoted tags ticket"
+    And ticket "query-001" has tags value: ['a', 'b']
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "tags" should equal ["a", "b"]
+
+  Scenario: Query escapes a double quote embedded in a single-quoted tag
+    Given a ticket exists with ID "query-001" and title "Embedded quote tag ticket"
+    And ticket "query-001" has tags value: ['a"b']
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "tags" should equal ["a\"b"]
+
+  Scenario: Query keeps an apostrophe inside an unquoted tag
+    Given a ticket exists with ID "query-001" and title "Apostrophe tag ticket"
+    And ticket "query-001" has tags value: [don't, b]
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "tags" should equal ["don't", "b"]
+
+  Scenario: Query keeps an apostrophe inside a double-quoted tag
+    Given a ticket exists with ID "query-001" and title "Quoted apostrophe tag ticket"
+    And ticket "query-001" has tags value: ["don't", "b"]
+    When I run "ticket query"
+    Then the command should succeed
+    And the output should be valid JSONL
+    And the JSONL field "tags" should equal ["don't", "b"]
+
   Scenario: Query ignores a markdown horizontal rule in the ticket body
     Given a ticket exists with ID "query-001" and title "HR body ticket"
     And ticket "query-001" has a horizontal rule followed by "foo: bar" in the body
