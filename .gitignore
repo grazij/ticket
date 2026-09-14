@@ -1,2 +1,7 @@
 # Claude Code session state and agent worktrees
 .claude/
+
+# Scratch ticket stores left by running tk inside its own repo. This project's
+# own issues live in Gitea, not in .tickets/ — downstream projects should commit
+# theirs.
+.tickets/
