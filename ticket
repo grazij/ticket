@@ -144,11 +144,13 @@ ensure_dir() {
 #   1  usage error -- bad arguments, unknown command, malformed or invalid ID
 #   2  no such ticket -- the ID did not resolve to exactly one ticket
 #   3  store unavailable -- no .tickets directory could be resolved
+#   4  conflict -- the ticket changed since the revision the write was pinned to
 # Handlers propagate with `|| return $?`; squashing to `|| return 1` here is
 # what made every failure indistinguishable.
 EX_USAGE=1
 EX_NOTICKET=2
 EX_NOSTORE=3
+EX_CONFLICT=4
 
 # Reject IDs that could escape TICKETS_DIR. A ticket ID names one file inside
 # the tickets directory, so it can never contain a path separator or a parent
@@ -222,6 +224,66 @@ update_yaml_field() {
 ${field}: ${value}
 }"
     fi
+}
+
+# Optimistic concurrency. Every write here is a read-modify-write -- sed over the
+# whole file, then mv -- so two agents editing one ticket silently lose one of the
+# two edits. A writer that read the ticket first can pin its write to what it read;
+# if the ticket moved underneath, the write is refused with EX_CONFLICT and nothing
+# is changed. Unpinned writes behave exactly as before, so this costs an existing
+# caller nothing.
+#
+# Appending commands are deliberately left unpinned: add-note and close's
+# verification block only ever append, so they cannot clobber a concurrent edit.
+# link and unlink are excluded for a different reason -- they write two files, and
+# one revision cannot describe both. Pinning a multi-file write needs an interface
+# this does not settle.
+
+# A ticket's revision: an opaque token over the file's bytes. cksum is POSIX,
+# unlike shasum and md5; this is a change detector, not a security hash.
+_revision_of() {
+    cksum < "$1" | awk '{print $1 "-" $2}'
+}
+
+# Pull --if-revision out of an argument list before the command parses the rest,
+# so the flag works in any position -- a caller appending it to a command line it
+# already had is the expected shape. The remaining arguments land in REST_ARGS.
+IF_REVISION=""
+REST_ARGS=()
+_take_if_revision() {
+    IF_REVISION=""
+    REST_ARGS=()
+    local seen=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --if-revision=*) IF_REVISION="${1#--if-revision=}"; seen=1; shift ;;
+            --if-revision)
+                if [[ $# -lt 2 ]]; then
+                    echo "Error: --if-revision requires <revision>" >&2
+                    return $EX_USAGE
+                fi
+                IF_REVISION="$2"; seen=1; shift 2 ;;
+            *) REST_ARGS+=("$1"); shift ;;
+        esac
+    done
+    if [[ $seen -eq 1 && -z "$IF_REVISION" ]]; then
+        echo "Error: --if-revision requires <revision>" >&2
+        return $EX_USAGE
+    fi
+    return 0
+}
+
+# Refuse the write if the ticket is not at the pinned revision. No pin, no check.
+_check_revision() {
+    local file="$1"
+    [[ -z "$IF_REVISION" ]] && return 0
+    local current
+    current=$(_revision_of "$file")
+    if [[ "$current" != "$IF_REVISION" ]]; then
+        echo "Error: ticket $(basename "$file" .md) changed since it was read (revision $current, pinned $IF_REVISION)" >&2
+        return $EX_CONFLICT
+    fi
+    return 0
 }
 
 cmd_create() {
@@ -317,6 +379,13 @@ validate_status() {
 }
 
 cmd_status() {
+    _take_if_revision "$@" || return $?
+    # ${a[@]+"${a[@]}"} rather than ${a[@]:-}: the latter expands an EMPTY array
+    # to one empty argument, which makes a no-argument call look like a call with
+    # a blank ID, so the usage check never fires and the ID resolver reports
+    # EX_NOTICKET instead. This form expands to nothing, and is set -u safe.
+    set -- ${REST_ARGS[@]+"${REST_ARGS[@]}"}
+
     if [[ $# -lt 2 ]]; then
         echo "Usage: $(basename "$0") status <id> <status>" >&2
         echo "Valid statuses: $VALID_STATUSES" >&2
@@ -330,6 +399,7 @@ cmd_status() {
 
     local file
     file=$(ticket_path "$id") || return $?
+    _check_revision "$file" || return $?
 
     update_yaml_field "$file" "status" "$status"
     echo "Updated $(basename "$file" .md) -> $status"
@@ -337,10 +407,13 @@ cmd_status() {
 
 cmd_start() {
     if [[ $# -lt 1 ]]; then
-        echo "Usage: $(basename "$0") start <id>" >&2
+        echo "Usage: $(basename "$0") start <id> [--if-revision <revision>]" >&2
         return 1
     fi
-    cmd_status "$1" "in_progress"
+    # Forward the rest rather than dropping it: a silently ignored --if-revision
+    # is exactly the unnoticed write this guard exists to prevent.
+    local id="$1"; shift
+    cmd_status "$id" "in_progress" "$@"
 }
 
 # Close asserts the work was done, so it takes the evidence: --verify-output
@@ -421,6 +494,9 @@ cmd_close() {
 # change to them -- but `search` still finds it, which is the point. A rejection
 # nobody can rediscover gets re-investigated.
 cmd_reject() {
+    _take_if_revision "$@" || return $?
+    set -- ${REST_ARGS[@]+"${REST_ARGS[@]}"}
+
     if [[ $# -lt 1 ]]; then
         echo "Usage: $(basename "$0") reject <id> [--reason <text>]" >&2
         return $EX_USAGE
@@ -439,6 +515,7 @@ cmd_reject() {
 
     local file
     file=$(ticket_path "$id") || return $?
+    _check_revision "$file" || return $?
     local target
     target=$(basename "$file" .md)
 
@@ -456,10 +533,11 @@ cmd_reject() {
 
 cmd_reopen() {
     if [[ $# -lt 1 ]]; then
-        echo "Usage: $(basename "$0") reopen <id>" >&2
+        echo "Usage: $(basename "$0") reopen <id> [--if-revision <revision>]" >&2
         return 1
     fi
-    cmd_status "$1" "open"
+    local id="$1"; shift
+    cmd_status "$id" "open" "$@"
 }
 
 cmd_dep_tree() {
@@ -773,6 +851,9 @@ cmd_dep_cycle() {
 }
 
 cmd_dep() {
+    _take_if_revision "$@" || return $?
+    set -- ${REST_ARGS[@]+"${REST_ARGS[@]}"}
+
     # Handle subcommands
     if [[ "${1:-}" == "tree" ]]; then
         shift
@@ -796,6 +877,7 @@ cmd_dep() {
     local dep_id="$2"
     local file
     file=$(ticket_path "$id") || return $?
+    _check_revision "$file" || return $?
 
     # Verify dependency exists and resolve to full ID
     local dep_file
@@ -1180,6 +1262,9 @@ cmd_blocked() {
 }
 
 cmd_undep() {
+    _take_if_revision "$@" || return $?
+    set -- ${REST_ARGS[@]+"${REST_ARGS[@]}"}
+
     if [[ $# -lt 2 ]]; then
         echo "Usage: ticket undep <id> <dependency-id>" >&2
         return 1
@@ -1189,6 +1274,7 @@ cmd_undep() {
     local dep_id="$2"
     local file
     file=$(ticket_path "$id") || return $?
+    _check_revision "$file" || return $?
 
     # Resolve dep_id to full ID
     local dep_file
@@ -1357,7 +1443,14 @@ cmd_show() {
         # Frontmatter is emitted generically: every key becomes a field, the
         # three known flow arrays become JSON arrays, priority becomes a number.
         # Body is everything after the frontmatter, title line included.
-        awk -v json=1 "$_JSON_AWK"'
+        #
+        # `revision` is not a frontmatter field and deliberately is not one: it is
+        # derived from the file's bytes, so storing it would change the very thing
+        # it describes. A writer reads it here and pins its write with
+        # --if-revision.
+        local rev
+        rev=$(_revision_of "$file")
+        awk -v json=1 -v revision="$rev" "$_JSON_AWK"'
         BEGIN { FS=": "; in_front=0; printf "{" }
         NR==1 && /^---$/ { in_front=1; next }
         in_front && /^---$/ { in_front=0; next }
@@ -1382,6 +1475,7 @@ cmd_show() {
             printf "%s\"title\":\"%s\"", (n++ ? "," : ""), json_escape(title)
             sub(/\n+$/, "", body)
             printf ",\"body\":\"%s\"", json_escape(body)
+            printf ",\"revision\":\"%s\"", json_escape(revision)
             printf "}\n"
         }
         ' "$file"
@@ -1617,22 +1711,22 @@ Commands:
     --external-ref         External reference (e.g., gh-123, JIRA-456)
     --parent               Parent ticket ID
     --tags                 Comma-separated tags (e.g., --tags ui,backend,urgent)
-  start <id>               Set status to in_progress
+  start <id> [--if-revision R]  Set status to in_progress
   close <id> --verify-output <file|->  Close with verification output, recorded on the ticket
-  reopen <id>              Set status to open
-  reject <id> [--reason T] Record a decision not to do the work
-  status <id> <status>     Update status (open|in_progress|closed|rejected)
-  dep <id> <dep-id>        Add dependency (id depends on dep-id)
+  reopen <id> [--if-revision R]  Set status to open
+  reject <id> [--reason T] [--if-revision R]  Record a decision not to do the work
+  status <id> <status> [--if-revision R]  Update status (open|in_progress|closed|rejected)
+  dep <id> <dep-id> [--if-revision R]  Add dependency (id depends on dep-id)
   dep tree [--full] <id>   Show dependency tree (--full disables dedup)
   dep cycle                Find dependency cycles in open tickets
-  undep <id> <dep-id>      Remove dependency
+  undep <id> <dep-id> [--if-revision R]  Remove dependency
   link <id> <id> [id...]   Link tickets together (symmetric)
   unlink <id> <target-id>  Remove link between tickets
   ready [--json] [-a X] [-T X]  List open/in-progress tickets with deps resolved
   blocked [--json] [-a X] [-T X]  List open/in-progress tickets with unresolved deps
   closed [--json] [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
   search [--json] [--status=X] <terms>  Search title and body, all statuses by default
-  show [--json] <id>       Display ticket
+  show [--json] <id>       Display ticket (--json carries a revision to pin writes to)
   add-note <id> [text]     Append timestamped note (or pipe via stdin)
   super <cmd> [args]       Bypass plugins, run built-in command directly
 EOF

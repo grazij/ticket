@@ -1108,3 +1108,52 @@ def step_ticket_not_has_link_in_dir(context, ticket_id, dir_path, link_id):
     assert links_match, f"links field not found\nContent: {content}"
     links = links_match.group(1)
     assert link_id not in links, f"Link '{link_id}' should not be in links: [{links}]"
+
+
+# ============================================================================
+# Optimistic concurrency: revision pinning
+# ============================================================================
+
+def _read_revision(context, ticket_id):
+    """Run `show --json` and return the ticket's revision token."""
+    ticket_script = get_ticket_script(context)
+    cwd = getattr(context, 'working_dir', context.test_dir)
+    result = subprocess.run(
+        [ticket_script, 'show', ticket_id, '--json'],
+        cwd=cwd, capture_output=True, text=True, stdin=subprocess.DEVNULL,
+    )
+    assert result.returncode == 0, (
+        f"show --json failed with {result.returncode}\n"
+        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    return json.loads(result.stdout).get('revision', '')
+
+
+@then(r'the JSON field "(?P<field>[^"]+)" should not be empty')
+def step_json_field_not_empty(context, field):
+    """Assert a JSON field is present and carries a non-empty value."""
+    data = json.loads(context.stdout)
+    assert field in data, f"field {field!r} missing from {sorted(data)}"
+    assert str(data[field]).strip(), f"field {field!r} is empty"
+
+
+@when(r'I remember the revision of ticket "(?P<ticket_id>[^"]+)"')
+def step_remember_revision(context, ticket_id):
+    """Capture a ticket's revision so a later write can be pinned to it."""
+    context.remembered_revision = _read_revision(context, ticket_id)
+    assert context.remembered_revision, "show --json carried no revision"
+
+
+@when(r'I run "(?P<command>(?:[^"\\]|\\.)+)" with the remembered revision')
+def step_run_with_remembered_revision(context, command):
+    """Run a command with the literal REV replaced by the remembered revision."""
+    step_run_command(context, command.replace('REV', context.remembered_revision))
+
+
+@then(r'the revision of ticket "(?P<ticket_id>[^"]+)" should differ from the remembered revision')
+def step_revision_changed(context, ticket_id):
+    """Assert the ticket's revision moved, so a stale pin can be detected at all."""
+    current = _read_revision(context, ticket_id)
+    assert current != context.remembered_revision, (
+        f"revision did not change: still {current!r}"
+    )

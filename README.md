@@ -67,22 +67,22 @@ Commands:
     --external-ref         External reference (e.g., gh-123, JIRA-456)
     --parent               Parent ticket ID
     --tags                 Comma-separated tags (e.g., --tags ui,backend,urgent)
-  start <id>               Set status to in_progress
+  start <id> [--if-revision R]  Set status to in_progress
   close <id> --verify-output <file|->  Close with verification output, recorded on the ticket
-  reopen <id>              Set status to open
-  reject <id> [--reason T] Record a decision not to do the work
-  status <id> <status>     Update status (open|in_progress|closed|rejected)
-  dep <id> <dep-id>        Add dependency (id depends on dep-id)
+  reopen <id> [--if-revision R]  Set status to open
+  reject <id> [--reason T] [--if-revision R]  Record a decision not to do the work
+  status <id> <status> [--if-revision R]  Update status (open|in_progress|closed|rejected)
+  dep <id> <dep-id> [--if-revision R]  Add dependency (id depends on dep-id)
   dep tree [--full] <id>   Show dependency tree (--full disables dedup)
   dep cycle                Find dependency cycles in open tickets
-  undep <id> <dep-id>      Remove dependency
+  undep <id> <dep-id> [--if-revision R]  Remove dependency
   link <id> <id> [id...]   Link tickets together (symmetric)
   unlink <id> <target-id>  Remove link between tickets
   ready [--json] [-a X] [-T X]  List open/in-progress tickets with deps resolved
   blocked [--json] [-a X] [-T X]  List open/in-progress tickets with unresolved deps
   closed [--json] [--limit=N] [-a X] [-T X] List recently closed tickets (default 20, by mtime)
   search [--json] [--status=X] <terms>  Search title and body, all statuses by default
-  show [--json] <id>       Display ticket
+  show [--json] <id>       Display ticket (--json carries a revision to pin writes to)
   add-note <id> [text]     Append timestamped note (or pipe via stdin)
   super <cmd> [args]       Bypass plugins, run built-in command directly
 
@@ -107,9 +107,33 @@ branch on it without parsing stderr.
 | 1 | usage error: bad arguments, unknown command, malformed ID |
 | 2 | no such ticket: the ID matched nothing, or matched more than one |
 | 3 | store unavailable: no `.tickets` directory could be resolved |
+| 4 | conflict: the ticket changed since the revision the write was pinned to |
 
 Code 2 and code 3 are the distinction that matters most: the first means the ID was
 wrong, the second means there is no ticket store here at all.
+
+## Concurrent writers
+
+Every write is a read-modify-write, so two agents editing the same ticket would
+otherwise lose one of the two edits with no warning. A writer that read the ticket
+first can pin its write to what it read:
+
+```sh
+rev=$(tk show nw-5c46 --json | jq -r .revision)
+# ... decide something based on what you read ...
+tk status nw-5c46 closed --if-revision "$rev"
+```
+
+If the ticket moved in between, the write is refused with exit 4 and nothing is
+changed. Re-read, re-apply your change to the current content, and write again --
+never retry the same write blind.
+
+The pin is available on `status`, `start`, `reopen`, `reject`, `dep` and `undep`.
+It is not on `add-note` or on `close`'s verification block, which only append and
+so cannot clobber a concurrent edit, nor on `link` and `unlink`, which write two
+files at once -- one revision cannot describe both.
+
+Without `--if-revision`, every command behaves exactly as it did before.
 
 ## Plugins
 

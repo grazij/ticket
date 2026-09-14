@@ -9,8 +9,8 @@
 - `super <cmd>` now names the plugin when no built-in exists (`tk super ls` said
   `Unknown command: ls`, though `ls` is a documented plugin command). `super` still
   refuses to run the plugin
-- Distinct exit codes: 1 usage error, 2 no such ticket, 3 store unavailable. Every
-  failure previously exited 1, so a caller could not tell a wrong ID from a missing
+- Distinct exit codes: 1 usage error, 2 no such ticket, 3 store unavailable, and 4
+  conflict. Every failure previously exited 1, so a caller could not tell a wrong ID from a missing
   `.tickets` directory without parsing stderr
 - `close <id>` now requires `--verify-output <file|->` and records that output on the
   ticket under a timestamped `## Verification` heading, so a closed ticket carries
@@ -18,6 +18,12 @@
   wrong ID still exits 2. `reject` and `status <id> closed` are unaffected
 
 ### Added
+- Optimistic concurrency: `show --json` carries a `revision`, and `status`, `start`,
+  `reopen`, `reject`, `dep` and `undep` take `--if-revision <revision>`. A pinned write
+  whose ticket moved since it was read is refused with the new exit code 4 and changes
+  nothing. Unpinned writes are unaffected. `add-note` and `close`'s verification block
+  only append, so they need no pin; `link` and `unlink` write two files at once and are
+  excluded
 - `--json` on `search`: emits the same rows as `ready`, `blocked` and `closed`, from the
   same shared awk escaping. `search` is the only command that reaches closed and rejected
   tickets, so it had no JSON-emitting substitute. No match prints `[]` and exits 0
